@@ -165,6 +165,19 @@ bot.onText(/\/start/, async (msg) => {
             `(Отправьте этот ID администратору)`,
           { parse_mode: "HTML" }
         );
+        
+        // Уведомляем админа о новом пользователе
+        if (TELEGRAM_ADMIN_ID) {
+          bot.sendMessage(
+            TELEGRAM_ADMIN_ID,
+            `🔔 <b>Новый пользователь нажал /start</b>\n\n` +
+              `👤 Имя: ${msg.from.first_name || "Не указано"}\n` +
+              `📱 Username: ${username ? "@" + username : "Не указан"}\n` +
+              `🆔 Telegram ID: <code>${userId}</code>\n\n` +
+              `Пользователь не зарегистрирован в системе.`,
+            { parse_mode: "HTML" }
+          );
+        }
       }
     }
   } catch (error) {
