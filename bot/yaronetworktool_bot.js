@@ -2963,6 +2963,10 @@ bot.on("callback_query", async (query) => {
         }
 
         keyboard.inline_keyboard.push([
+          { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${clientData.uuid}` }
+        ]);
+
+        keyboard.inline_keyboard.push([
           { text: "⚠️ Выдать предупреждение", callback_data: `warn_client` }
         ]);
 
@@ -3419,6 +3423,11 @@ bot.on("callback_query", async (query) => {
               { text: "🔓 Разблокировать", callback_data: `unban_client` }
             ]);
           }
+
+          // Кнопка изменить лимит устройств
+          keyboard.inline_keyboard.push([
+            { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${clientData.uuid}` }
+          ]);
 
           // Кнопка выдать предупреждение
           keyboard.inline_keyboard.push([
