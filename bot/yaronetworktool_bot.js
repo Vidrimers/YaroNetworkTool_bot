@@ -10,6 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
+import { getActiveDevices } from "./device-monitor.js";
 
 const execAsync = promisify(exec);
 
@@ -399,6 +400,12 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
     const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
 
+    // Получаем информацию об активных устройствах
+    const deviceInfo = await getActiveDevices();
+    const devices = deviceInfo[uuid];
+    const deviceCount = devices ? devices.count : 0;
+    const deviceIPs = devices ? devices.ips : [];
+
     let message = `👤 <b>Информация о клиенте</b>\n\n`;
     message += `<b>Имя:</b> ${client.name}\n`;
     message += `<b>UUID:</b> <code>${client.uuid}</code>\n`;
@@ -409,7 +416,16 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
     message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
-    message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n`;
+    message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
+    message += `<b>📱 Активных устройств:</b> ${deviceCount}`;
+    
+    if (deviceCount > 2) {
+      message += ` ⚠️ (лимит: 2)`;
+    }
+    
+    if (deviceCount > 0) {
+      message += `\n<b>IP адреса:</b>\n${deviceIPs.map(ip => `   • ${ip}`).join('\n')}`;
+    }
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
   } catch (error) {
@@ -1105,6 +1121,9 @@ bot.on("message", async (msg) => {
             ],
             [
               { text: "📊 Проверить трафик", callback_data: "admin_check_traffic" }
+            ],
+            [
+              { text: "📱 Проверить устройства", callback_data: "admin_check_devices" }
             ]
           ]
         };
@@ -1930,6 +1949,122 @@ bot.on("callback_query", async (query) => {
         
         bot.editMessageText(
           `📊 <b>Проверка трафика</b>\n\n` +
+            `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Проверка устройств вручную
+    if (data === "admin_check_devices") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `📱 <b>Проверка устройств</b>\n\n` +
+            `⏳ Запуск проверки...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Запускаем скрипт проверки устройств
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const scriptPath = join(__dirname, 'device-monitor.js');
+        
+        const { stdout, stderr } = await execAsync(`node "${scriptPath}"`);
+        
+        // Парсим вывод скрипта
+        let totalClients = 0;
+        let activeConnections = 0;
+        let warningCount = 0;
+        const clientsList = [];
+        
+        // Ищем строки с результатами
+        const totalMatch = stdout.match(/Всего активных клиентов:\s*(\d+)/);
+        const activeMatch = stdout.match(/Клиентов с активными подключениями:\s*(\d+)/);
+        const warningMatch = stdout.match(/Превысили лимит устройств:\s*(\d+)/);
+        
+        if (totalMatch) {
+          totalClients = parseInt(totalMatch[1]);
+        }
+        if (activeMatch) {
+          activeConnections = parseInt(activeMatch[1]);
+        }
+        if (warningMatch) {
+          warningCount = parseInt(warningMatch[1]);
+        }
+        
+        // Парсим список клиентов с превышением
+        const clientsSection = stdout.match(/Клиенты с превышением:\n([\s\S]*?)Проверка завершена/);
+        if (clientsSection && clientsSection[1]) {
+          const lines = clientsSection[1].trim().split('\n');
+          lines.forEach(line => {
+            const match = line.match(/\d+\.\s+(.+?)\s+-\s+(\d+)\s+устройств/);
+            if (match) {
+              clientsList.push({
+                name: match[1],
+                count: match[2]
+              });
+            }
+          });
+        }
+        
+        let resultMessage = `📱 <b>Проверка устройств</b>\n\n`;
+        resultMessage += `✅ Проверка завершена\n\n`;
+        resultMessage += `📊 <b>Результаты:</b>\n`;
+        resultMessage += `• Всего активных клиентов: ${totalClients}\n`;
+        resultMessage += `• С активными подключениями: ${activeConnections}\n`;
+        resultMessage += `• Превысили лимит (>2): ${warningCount}\n\n`;
+        
+        if (warningCount > 0) {
+          resultMessage += `⚠️ <b>Клиенты с превышением:</b>\n`;
+          clientsList.forEach((client, i) => {
+            resultMessage += `${i + 1}. <b>${client.name}</b> - ${client.count} устройств\n`;
+          });
+          resultMessage += `\n📨 Уведомления отправлены админу\n\n`;
+        } else {
+          resultMessage += `✅ Все клиенты в пределах нормы\n\n`;
+        }
+        
+        resultMessage += `<i>💡 Лимит: 2 устройства на клиента\nАктивное окно: последние 5 минут</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Проверка завершена",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка проверки устройств:", error);
+        
+        bot.editMessageText(
+          `📱 <b>Проверка устройств</b>\n\n` +
             `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
           {
             chat_id: chatId,
