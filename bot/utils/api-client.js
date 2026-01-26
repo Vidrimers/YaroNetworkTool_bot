@@ -225,6 +225,25 @@ class APIClient {
     return this.request(`/api/v1/clients/${uuid}/unblock`, "POST");
   }
 
+  /**
+   * Выдать предупреждение клиенту
+   * @param {string} uuid - UUID клиента
+   * @param {string} reason - Причина предупреждения
+   * @returns {Promise<Object>} - Результат
+   */
+  async warnClient(uuid, reason) {
+    return this.request(`/api/v1/clients/${uuid}/warn`, "POST", { reason });
+  }
+
+  /**
+   * Сбросить предупреждения клиента
+   * @param {string} uuid - UUID клиента
+   * @returns {Promise<Object>} - Результат
+   */
+  async resetClientWarnings(uuid) {
+    return this.request(`/api/v1/clients/${uuid}/reset-warnings`, "POST");
+  }
+
   // ============================================================================
   // УПРАВЛЕНИЕ ЗАПРОСАМИ НА ПРОДЛЕНИЕ
   // ============================================================================
@@ -259,10 +278,13 @@ class APIClient {
    * Одобрить запрос на продление
    * @param {string} id - ID запроса
    * @param {number} days - Количество дней (опционально)
+   * @param {number} adminTelegramId - Telegram ID админа
    * @returns {Promise<Object>} - Результат одобрения
    */
-  async approveExtensionRequest(id, days = null) {
-    const data = days ? { days } : {};
+  async approveExtensionRequest(id, days = null, adminTelegramId = null) {
+    const data = {};
+    if (days) data.approved_days = days;
+    if (adminTelegramId) data.admin_telegram_id = adminTelegramId;
     return this.request(`/api/v1/extension-requests/${id}/approve`, "POST", data);
   }
 
