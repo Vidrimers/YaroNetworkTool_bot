@@ -6,8 +6,12 @@
 
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
+import { exec } from "child_process";
+import { promisify } from "util";
 import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
+
+const execAsync = promisify(exec);
 
 dotenv.config();
 
@@ -68,7 +72,7 @@ function getMainKeyboard(isAdminUser = false) {
       keyboard: [
         [{ text: '👶 Малютки' }, { text: '📊 Статистика' }],
         [{ text: '📝 Запросы' }, { text: '⚙️ Сервер' }],
-        [{ text: '❓ Помощь' }]
+        [{ text: '🔧 Xray' }, { text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -1174,6 +1178,29 @@ bot.on("message", async (msg) => {
         message += `   Заблокированных: ${blockedClients}\n`;
 
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+      } else if (text === "🔧 Xray") {
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.sendMessage(
+          chatId,
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `Выбери действие:`,
+          {
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
       }
     } else {
       // Кнопки клиента
@@ -2592,6 +2619,392 @@ bot.on("callback_query", async (query) => {
         }
       }
     }
+
+    // ========================================================================
+    // УПРАВЛЕНИЕ XRAY СЕРВИСОМ
+    // ========================================================================
+
+    // Запуск Xray
+    if (data === "xray_start") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `⏳ Запуск сервиса...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Проверяем, запущен ли бот от root
+        const isRoot = process.getuid && process.getuid() === 0;
+        const sudoPrefix = isRoot ? "" : "sudo ";
+
+        const { stdout, stderr } = await execAsync(`${sudoPrefix}systemctl start xray`);
+        
+        // Проверяем статус после запуска
+        const { stdout: statusOutput } = await execAsync(`${sudoPrefix}systemctl status xray`);
+        const isActive = statusOutput.includes("active (running)");
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `${isActive ? "✅ Сервис успешно запущен" : "⚠️ Сервис запущен, но статус неизвестен"}`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка запуска Xray:", error);
+        
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `❌ Ошибка запуска:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка запуска",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Остановка Xray
+    if (data === "xray_stop") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `⏳ Остановка сервиса...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        const isRoot = process.getuid && process.getuid() === 0;
+        const sudoPrefix = isRoot ? "" : "sudo ";
+
+        await execAsync(`${sudoPrefix}systemctl stop xray`);
+        
+        // Проверяем статус после остановки
+        const { stdout: statusOutput } = await execAsync(`${sudoPrefix}systemctl status xray`).catch(() => ({ stdout: "inactive" }));
+        const isInactive = statusOutput.includes("inactive") || statusOutput.includes("dead");
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `${isInactive ? "✅ Сервис успешно остановлен" : "⚠️ Сервис остановлен, но статус неизвестен"}`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка остановки Xray:", error);
+        
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `❌ Ошибка остановки:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка остановки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Перезапуск Xray
+    if (data === "xray_restart") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `⏳ Перезапуск сервиса...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        const isRoot = process.getuid && process.getuid() === 0;
+        const sudoPrefix = isRoot ? "" : "sudo ";
+
+        await execAsync(`${sudoPrefix}systemctl restart xray`);
+        
+        // Проверяем статус после перезапуска
+        const { stdout: statusOutput } = await execAsync(`${sudoPrefix}systemctl status xray`);
+        const isActive = statusOutput.includes("active (running)");
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `${isActive ? "✅ Сервис успешно перезапущен" : "⚠️ Сервис перезапущен, но статус неизвестен"}`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка перезапуска Xray:", error);
+        
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `❌ Ошибка перезапуска:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка перезапуска",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Статус Xray
+    if (data === "xray_status") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `⏳ Проверка статуса...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        const isRoot = process.getuid && process.getuid() === 0;
+        const sudoPrefix = isRoot ? "" : "sudo ";
+
+        const { stdout } = await execAsync(`${sudoPrefix}systemctl status xray`).catch((error) => ({ stdout: error.stdout || error.stderr || "Сервис не найден" }));
+        
+        // Парсим статус
+        const isActive = stdout.includes("active (running)");
+        const isInactive = stdout.includes("inactive") || stdout.includes("dead");
+        const isFailed = stdout.includes("failed");
+        
+        let statusEmoji = "❓";
+        let statusText = "Неизвестно";
+        
+        if (isActive) {
+          statusEmoji = "✅";
+          statusText = "Запущен";
+        } else if (isInactive) {
+          statusEmoji = "⏹️";
+          statusText = "Остановлен";
+        } else if (isFailed) {
+          statusEmoji = "❌";
+          statusText = "Ошибка";
+        }
+
+        // Извлекаем последние строки лога
+        const lines = stdout.split('\n');
+        const relevantLines = lines.slice(0, 15).join('\n');
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `${statusEmoji} <b>Статус:</b> ${statusText}\n\n` +
+            `<code>${relevantLines}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка проверки статуса Xray:", error);
+        
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "▶️ Запустить", callback_data: "xray_start" },
+              { text: "⏹️ Остановить", callback_data: "xray_stop" }
+            ],
+            [
+              { text: "🔄 Перезапустить", callback_data: "xray_restart" },
+              { text: "📊 Статус", callback_data: "xray_status" }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `🔧 <b>Управление Xray сервисом</b>\n\n` +
+            `❌ Ошибка проверки статуса:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки статуса",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
   } catch (error) {
     console.error("Ошибка обработки callback:", error);
     bot.answerCallbackQuery(query.id, {
