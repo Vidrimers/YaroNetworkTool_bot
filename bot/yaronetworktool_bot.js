@@ -7,6 +7,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import APIClient from "./utils/api-client.js";
+import { generateVlessLink } from "./utils/vless-link-generator.js";
 
 dotenv.config();
 
@@ -14,6 +15,10 @@ dotenv.config();
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_ADMIN_ID = parseInt(process.env.TELEGRAM_ADMIN_ID);
 const SERVER_IP = process.env.SERVER_IP || "localhost";
+const XRAY_PORT = parseInt(process.env.XRAY_PORT) || 8443;
+const XRAY_PUBLIC_KEY = process.env.XRAY_PUBLIC_KEY;
+const XRAY_SHORT_ID = process.env.XRAY_SHORT_ID;
+const XRAY_SNI = process.env.XRAY_SNI || "www.microsoft.com";
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error("TELEGRAM_BOT_TOKEN не установлен в .env");
@@ -629,6 +634,24 @@ bot.on("message", async (msg) => {
           
           const client = response.client;
           
+          // Генерируем vless ссылку
+          let vlessLink = '';
+          try {
+            if (XRAY_PUBLIC_KEY && XRAY_SHORT_ID) {
+              vlessLink = generateVlessLink({
+                uuid: client.uuid,
+                serverIp: SERVER_IP,
+                port: XRAY_PORT,
+                publicKey: XRAY_PUBLIC_KEY,
+                shortId: XRAY_SHORT_ID,
+                sni: XRAY_SNI,
+                clientName: client.name
+              });
+            }
+          } catch (linkError) {
+            console.error('Ошибка генерации vless ссылки:', linkError);
+          }
+          
           bot.sendMessage(
             chatId,
             `✅ <b>Доступ создан!</b>\n\n` +
@@ -636,7 +659,8 @@ bot.on("message", async (msg) => {
               `🆔 UUID: <code>${client.uuid}</code>\n` +
               `📱 Telegram ID: ${client.telegram_id}\n` +
               `📅 Подписка: ${days} дней\n` +
-              `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
+              `📊 Лимит трафика: ${client.traffic_limit_gb} GB` +
+              (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>` : ''),
             { 
               parse_mode: "HTML",
               reply_markup: getMainKeyboard(true)
@@ -727,6 +751,24 @@ bot.on("message", async (msg) => {
           
           const client = response.client;
           
+          // Генерируем vless ссылку
+          let vlessLink = '';
+          try {
+            if (XRAY_PUBLIC_KEY && XRAY_SHORT_ID) {
+              vlessLink = generateVlessLink({
+                uuid: client.uuid,
+                serverIp: SERVER_IP,
+                port: XRAY_PORT,
+                publicKey: XRAY_PUBLIC_KEY,
+                shortId: XRAY_SHORT_ID,
+                sni: XRAY_SNI,
+                clientName: client.name
+              });
+            }
+          } catch (linkError) {
+            console.error('Ошибка генерации vless ссылки:', linkError);
+          }
+          
           bot.sendMessage(
             chatId,
             `✅ <b>Клиент создан успешно!</b>\n\n` +
@@ -734,7 +776,8 @@ bot.on("message", async (msg) => {
               `🆔 UUID: <code>${client.uuid}</code>\n` +
               `📱 Telegram ID: ${client.telegram_id || "не указан"}\n` +
               `📅 Подписка: ${days} дней\n` +
-              `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
+              `📊 Лимит трафика: ${client.traffic_limit_gb} GB` +
+              (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>` : ''),
             { 
               parse_mode: "HTML",
               reply_markup: getMainKeyboard(true)
@@ -750,8 +793,9 @@ bot.on("message", async (msg) => {
                 `👤 <b>Имя:</b> ${client.name}\n` +
                 `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n` +
                 `📅 <b>Подписка:</b> ${days} дней\n` +
-                `📊 <b>Лимит трафика:</b> ${client.traffic_limit_gb} GB\n\n` +
-                `Используйте /start для доступа к личному кабинету.`,
+                `📊 <b>Лимит трафика:</b> ${client.traffic_limit_gb} GB` +
+                (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>\n\nСкопируйте ссылку и вставьте в VPN клиент (v2rayN, v2rayNG, Streisand)` : '') +
+                `\n\nИспользуйте /start для доступа к личному кабинету.`,
               { parse_mode: "HTML" }
             ).catch(err => {
               console.error("Не удалось отправить уведомление клиенту:", err);
@@ -1074,10 +1118,43 @@ bot.on("message", async (msg) => {
 
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "🔗 Моя ссылка") {
+        // Генерируем vless ссылку
+        let vlessLink = '';
+        try {
+          if (XRAY_PUBLIC_KEY && XRAY_SHORT_ID) {
+            vlessLink = generateVlessLink({
+              uuid: client.uuid,
+              serverIp: SERVER_IP,
+              port: XRAY_PORT,
+              publicKey: XRAY_PUBLIC_KEY,
+              shortId: XRAY_SHORT_ID,
+              sni: XRAY_SNI,
+              clientName: client.name
+            });
+          }
+        } catch (linkError) {
+          console.error('Ошибка генерации vless ссылки:', linkError);
+        }
+        
         let message = `🔗 <b>Ссылка подключения</b>\n\n`;
-        message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
-        message += `Для получения ссылки подключения обратитесь к администратору.\n`;
-        message += `Администратор сгенерирует для вас vless:// ссылку и QR код.`;
+        
+        if (vlessLink) {
+          message += `<b>Ваша ссылка для подключения:</b>\n`;
+          message += `<code>${vlessLink}</code>\n\n`;
+          message += `📱 <b>Как подключиться:</b>\n`;
+          message += `1. Скопируйте ссылку выше\n`;
+          message += `2. Откройте VPN клиент:\n`;
+          message += `   • Windows/Linux: v2rayN\n`;
+          message += `   • Android: v2rayNG\n`;
+          message += `   • iOS/macOS: Streisand\n`;
+          message += `3. Вставьте ссылку в клиент\n`;
+          message += `4. Подключитесь к VPN\n\n`;
+          message += `💡 <b>Совет:</b> Нажмите на ссылку чтобы скопировать`;
+        } else {
+          message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
+          message += `⚠️ Автоматическая генерация ссылок временно недоступна.\n`;
+          message += `Для получения ссылки подключения обратитесь к администратору.`;
+        }
 
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "🔑 Запросить ключ") {
@@ -1200,7 +1277,7 @@ bot.on("callback_query", async (query) => {
       
       bot.editMessageText(
         `✅ <b>Заявка отправлена!</b>\n\n` +
-          `Администратор получил вашу заявку и свяжется с вами в ближайшее время.\n\n` +
+          `Малютка, админ получил твою заявку и свяжется с тобой в ближайшее время ;-)\n\n` +
           `Ваш Telegram ID: <code>${userId}</code>`,
         {
           chat_id: chatId,
