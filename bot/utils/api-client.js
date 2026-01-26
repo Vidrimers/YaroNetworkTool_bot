@@ -354,6 +354,16 @@ class APIClient {
   async getSystemLogs(lines = 100) {
     return this.request(`/api/v1/system/logs?lines=${lines}`, "GET");
   }
+
+  /**
+   * Изменить лимит устройств для клиента
+   * @param {string} uuid - UUID клиента
+   * @param {number} maxDevices - Максимальное количество устройств (1-10)
+   * @returns {Promise<Object>} - Обновленный клиент
+   */
+  async updateDeviceLimit(uuid, maxDevices) {
+    return this.request(`/api/clients/${uuid}/device-limit`, "PUT", { max_devices: maxDevices });
+  }
 }
 
 export default APIClient;

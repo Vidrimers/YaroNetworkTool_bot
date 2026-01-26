@@ -405,6 +405,7 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     const devices = deviceInfo[uuid];
     const deviceCount = devices ? devices.count : 0;
     const deviceIPs = devices ? devices.ips : [];
+    const maxDevices = client.max_devices || 2;
 
     let message = `👤 <b>Информация о клиенте</b>\n\n`;
     message += `<b>Имя:</b> ${client.name}\n`;
@@ -417,17 +418,25 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
     message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
-    message += `<b>📱 Активных устройств:</b> ${deviceCount}`;
+    message += `<b>📱 Активных устройств:</b> ${deviceCount} / ${maxDevices}`;
     
-    if (deviceCount > 2) {
-      message += ` ⚠️ (лимит: 2)`;
+    if (deviceCount > maxDevices) {
+      message += ` ⚠️ (превышен лимит!)`;
     }
     
     if (deviceCount > 0) {
       message += `\n<b>IP адреса:</b>\n${deviceIPs.map(ip => `   • ${ip}`).join('\n')}`;
     }
 
-    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
+        ]
+      ]
+    };
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML", reply_markup: keyboard });
   } catch (error) {
     console.error("Ошибка /client_info:", error);
     bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
@@ -3805,6 +3814,175 @@ bot.on("callback_query", async (query) => {
 
         bot.answerCallbackQuery(query.id, {
           text: "❌ Ошибка проверки статуса",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Изменить лимит устройств
+    if (data.startsWith("change_device_limit_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("change_device_limit_", "");
+      
+      // Показываем кнопки выбора лимита
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: "1 устройство", callback_data: `set_device_limit_${uuid}_1` },
+            { text: "2 устройства", callback_data: `set_device_limit_${uuid}_2` },
+            { text: "3 устройства", callback_data: `set_device_limit_${uuid}_3` }
+          ],
+          [
+            { text: "4 устройства", callback_data: `set_device_limit_${uuid}_4` },
+            { text: "5 устройств", callback_data: `set_device_limit_${uuid}_5` },
+            { text: "10 устройств", callback_data: `set_device_limit_${uuid}_10` }
+          ],
+          [
+            { text: "« Назад", callback_data: `back_to_client_info_${uuid}` }
+          ]
+        ]
+      };
+
+      bot.editMessageText(
+        `📱 <b>Изменить лимит устройств</b>\n\n` +
+          `Выбери новый лимит одновременных подключений для клиента:`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        }
+      );
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Установить лимит устройств
+    if (data.startsWith("set_device_limit_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const parts = data.replace("set_device_limit_", "").split("_");
+      const uuid = parts[0];
+      const maxDevices = parseInt(parts[1]);
+
+      try {
+        const response = await apiClient.updateDeviceLimit(uuid, maxDevices);
+        const client = response.client;
+
+        bot.answerCallbackQuery(query.id, {
+          text: `✅ Лимит устройств изменен на ${maxDevices}`,
+          show_alert: true,
+        });
+
+        // Показываем обновленную информацию о клиенте
+        const endDate = new Date(client.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+
+        let message = `👤 <b>Информация о клиенте</b>\n\n`;
+        message += `<b>Имя:</b> ${client.name}\n`;
+        message += `<b>UUID:</b> <code>${client.uuid}</code>\n`;
+        message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n\n`;
+        message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n\n`;
+        message += `<b>📱 Лимит устройств:</b> ${maxDevices}\n`;
+        message += `✅ Лимит успешно изменен!`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
+            ]
+          ]
+        };
+
+        bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
+
+      } catch (error) {
+        console.error("Ошибка изменения лимита устройств:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Вернуться к информации о клиенте
+    if (data.startsWith("back_to_client_info_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("back_to_client_info_", "");
+
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+
+        const endDate = new Date(client.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+        const maxDevices = client.max_devices || 2;
+
+        let message = `👤 <b>Информация о клиенте</b>\n\n`;
+        message += `<b>Имя:</b> ${client.name}\n`;
+        message += `<b>UUID:</b> <code>${client.uuid}</code>\n`;
+        message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n`;
+        message += `<b>Email:</b> ${client.email || "не указан"}\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+        message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
+        message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
+        message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
+        message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
+        message += `<b>📱 Лимит устройств:</b> ${maxDevices}`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
+            ]
+          ]
+        };
+
+        bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка получения информации о клиенте:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
           show_alert: true,
         });
       }
