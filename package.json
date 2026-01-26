@@ -1,0 +1,34 @@
+{
+  "name": "yaronetworktool",
+  "version": "1.0.0",
+  "description": "Telegram бот для управления VPN сервером на базе X-Ray Core",
+  "main": "bot/yaronetworktool_bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot/yaronetworktool_bot.js",
+    "dev": "nodemon bot/yaronetworktool_bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "vpn",
+    "xray",
+    "vless",
+    "management"
+  ],
+  "author": "YaroNetwork",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "dotenv": "^16.4.5",
+    "sqlite3": "^5.1.7",
+    "ssh2": "^1.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
