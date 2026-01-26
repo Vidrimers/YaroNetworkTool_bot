@@ -637,7 +637,10 @@ bot.on("message", async (msg) => {
               `📱 Telegram ID: ${client.telegram_id}\n` +
               `📅 Подписка: ${days} дней\n` +
               `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
-            { parse_mode: "HTML" }
+            { 
+              parse_mode: "HTML",
+              reply_markup: getMainKeyboard(true)
+            }
           );
           
           // Уведомляем клиента
@@ -667,7 +670,9 @@ bot.on("message", async (msg) => {
           userStates.delete(userId);
         } catch (error) {
           console.error("Ошибка создания доступа:", error);
-          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
+            reply_markup: getMainKeyboard(true)
+          });
           userStates.delete(userId);
         }
         return;
@@ -730,7 +735,10 @@ bot.on("message", async (msg) => {
               `📱 Telegram ID: ${client.telegram_id || "не указан"}\n` +
               `📅 Подписка: ${days} дней\n` +
               `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
-            { parse_mode: "HTML" }
+            { 
+              parse_mode: "HTML",
+              reply_markup: getMainKeyboard(true)
+            }
           );
           
           // Уведомляем клиента если указан Telegram ID
@@ -753,7 +761,9 @@ bot.on("message", async (msg) => {
           userStates.delete(userId);
         } catch (error) {
           console.error("Ошибка создания клиента:", error);
-          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
+            reply_markup: getMainKeyboard(true)
+          });
           userStates.delete(userId);
         }
         return;
@@ -830,7 +840,10 @@ bot.on("message", async (msg) => {
             `👤 Клиент: ${client.name}\n` +
             `⚠️ Предупреждение: ${warningsCount}/3\n` +
             `📝 Причина: ${reason}${blockInfo}`,
-          { parse_mode: "HTML" }
+          { 
+            parse_mode: "HTML",
+            reply_markup: getMainKeyboard(true)
+          }
         );
 
         // Уведомляем клиента
@@ -855,7 +868,9 @@ bot.on("message", async (msg) => {
         userStates.delete(userId);
       } catch (error) {
         console.error("Ошибка выдачи предупреждения:", error);
-        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
+          reply_markup: getMainKeyboard(true)
+        });
         userStates.delete(userId);
       }
       return;
@@ -1882,50 +1897,68 @@ bot.on("callback_query", async (query) => {
       }
 
       const client = userState.clients[index];
-      const status = client.status === "blocked" ? "🔒 Заблокирован" : "✅ Активен";
 
-      let message = `⚠️ <b>Управление банами</b>\n\n`;
-      message += `👤 <b>Клиент:</b> ${client.name}\n`;
-      message += `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n`;
-      message += `📊 <b>Статус:</b> ${status}\n`;
-      message += `⚠️ <b>Предупреждения:</b> ${client.warnings_count || 0}/3\n`;
-      if (client.blocked_reason) {
-        message += `📝 <b>Причина:</b> ${client.blocked_reason}\n`;
-      }
+      try {
+        // Получаем свежие данные клиента через API
+        const response = await apiClient.getClient(client.uuid);
+        const clientData = response.client;
+        const status = clientData.status === "blocked" ? "🔒 Заблокирован" : "✅ Активен";
 
-      const keyboard = {
-        inline_keyboard: []
-      };
+        // Сохраняем UUID клиента для последующих действий
+        userStates.set(userId, {
+          action: "ban_client_selected",
+          clientUuid: clientData.uuid
+        });
 
-      if (client.status === "blocked") {
+        let message = `⚠️ <b>Управление банами</b>\n\n`;
+        message += `👤 <b>Клиент:</b> ${clientData.name}\n`;
+        message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n`;
+        message += `📊 <b>Статус:</b> ${status}\n`;
+        message += `⚠️ <b>Предупреждения:</b> ${clientData.warnings_count || 0}/3\n`;
+        if (clientData.blocked_reason) {
+          message += `📝 <b>Причина:</b> ${clientData.blocked_reason}\n`;
+        }
+
+        const keyboard = {
+          inline_keyboard: []
+        };
+
+        if (clientData.status === "blocked") {
+          keyboard.inline_keyboard.push([
+            { text: "🔓 Разблокировать", callback_data: `unban_client` }
+          ]);
+        }
+
+        if (clientData.warnings_count > 0) {
+          keyboard.inline_keyboard.push([
+            { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_client` }
+          ]);
+        }
+
         keyboard.inline_keyboard.push([
-          { text: "🔓 Разблокировать", callback_data: `unban_${client.uuid}` }
+          { text: "⚠️ Выдать предупреждение", callback_data: `warn_client` }
         ]);
+
+        bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка получения данных клиента:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
       }
-
-      if (client.warnings_count > 0) {
-        keyboard.inline_keyboard.push([
-          { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_${client.uuid}` }
-        ]);
-      }
-
-      keyboard.inline_keyboard.push([
-        { text: "⚠️ Выдать предупреждение", callback_data: `warn_${client.uuid}` }
-      ]);
-
-      bot.editMessageText(message, {
-        chat_id: chatId,
-        message_id: query.message.message_id,
-        parse_mode: "HTML",
-        reply_markup: keyboard
-      });
-
-      bot.answerCallbackQuery(query.id);
       return;
     }
 
     // Разблокировать клиента
-    if (data.startsWith("unban_")) {
+    if (data === "unban_client") {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
           text: "❌ Доступ запрещен",
@@ -1934,7 +1967,16 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.substring(6);
+      const userState = userStates.get(userId);
+      if (!userState || !userState.clientUuid) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const clientUuid = userState.clientUuid;
 
       try {
         const response = await apiClient.unblockClient(clientUuid);
@@ -1962,6 +2004,7 @@ bot.on("callback_query", async (query) => {
           );
         }
 
+        userStates.delete(userId);
         bot.answerCallbackQuery(query.id, { text: "✅ Клиент разблокирован" });
       } catch (error) {
         console.error("Ошибка разблокировки:", error);
@@ -1974,7 +2017,7 @@ bot.on("callback_query", async (query) => {
     }
 
     // Выдать предупреждение
-    if (data.startsWith("warn_")) {
+    if (data === "warn_client") {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
           text: "❌ Доступ запрещен",
@@ -1983,9 +2026,18 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.substring(5);
+      const userState = userStates.get(userId);
+      if (!userState || !userState.clientUuid) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
 
-      // Сохраняем UUID в состояние
+      const clientUuid = userState.clientUuid;
+
+      // Сохраняем UUID в состояние для выбора причины
       userStates.set(userId, {
         action: "warn_select_reason",
         clientUuid: clientUuid
@@ -2163,7 +2215,7 @@ bot.on("callback_query", async (query) => {
     }
 
     // Сброс предупреждений
-    if (data.startsWith("reset_warn_")) {
+    if (data === "reset_warn_client") {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
           text: "❌ Доступ запрещен",
@@ -2172,7 +2224,16 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.substring(11);
+      const userState = userStates.get(userId);
+      if (!userState || !userState.clientUuid) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const clientUuid = userState.clientUuid;
 
       try {
         const response = await apiClient.resetClientWarnings(clientUuid);
@@ -2189,6 +2250,7 @@ bot.on("callback_query", async (query) => {
           }
         );
 
+        userStates.delete(userId);
         bot.answerCallbackQuery(query.id, { text: "✅ Предупреждения сброшены" });
       } catch (error) {
         console.error("Ошибка сброса предупреждений:", error);
@@ -2314,17 +2376,32 @@ bot.on("callback_query", async (query) => {
             }
           }
 
+          // Сохраняем UUID клиента для последующих действий
+          userStates.set(userId, {
+            action: "info_client_selected",
+            clientUuid: clientData.uuid
+          });
+
           const keyboard = {
-            inline_keyboard: [
-              [
-                { text: "⚠️ Выдать предупреждение", callback_data: `warn_${client.uuid}` }
-              ]
-            ]
+            inline_keyboard: []
           };
 
+          // Кнопка разблокировать если клиент заблокирован
+          if (clientData.status === "blocked") {
+            keyboard.inline_keyboard.push([
+              { text: "🔓 Разблокировать", callback_data: `unban_client` }
+            ]);
+          }
+
+          // Кнопка выдать предупреждение
+          keyboard.inline_keyboard.push([
+            { text: "⚠️ Выдать предупреждение", callback_data: `warn_client` }
+          ]);
+
+          // Кнопка сбросить предупреждения если есть
           if (clientData.warnings_count > 0) {
             keyboard.inline_keyboard.push([
-              { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_${client.uuid}` }
+              { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_client` }
             ]);
           }
 
@@ -2335,7 +2412,6 @@ bot.on("callback_query", async (query) => {
             reply_markup: keyboard
           });
 
-          userStates.delete(userId);
           bot.answerCallbackQuery(query.id);
         } catch (error) {
           console.error("Ошибка получения информации о клиенте:", error);
