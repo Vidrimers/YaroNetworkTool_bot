@@ -52,7 +52,7 @@ function getMainKeyboard(isAdminUser = false) {
   if (isAdminUser) {
     return {
       keyboard: [
-        [{ text: '👥 Клиенты' }, { text: '📊 Статистика' }],
+        [{ text: '👶 Малютки' }, { text: '📊 Статистика' }],
         [{ text: '📝 Запросы' }, { text: '⚙️ Сервер' }],
         [{ text: '❓ Помощь' }]
       ],
@@ -156,28 +156,23 @@ bot.onText(/\/start/, async (msg) => {
         }, 1000);
       } else {
         // Клиент не зарегистрирован
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: "📝 Отправить заявку", callback_data: "request_access" }]
+          ]
+        };
+
         bot.sendMessage(
           chatId,
           `👋 Привет, ${username}!\n\n` +
             `❌ <b>Вы не зарегистрированы в системе</b>\n\n` +
-            `Для получения доступа к VPN обратитесь к администратору.\n\n` +
-            `Ваш Telegram ID: <code>${userId}</code>\n` +
-            `(Отправьте этот ID администратору)`,
-          { parse_mode: "HTML" }
+            `Для получения доступа к VPN нажмите кнопку ниже.\n\n` +
+            `Ваш Telegram ID: <code>${userId}</code>`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
         );
-        
-        // Уведомляем админа о новом пользователе
-        if (TELEGRAM_ADMIN_ID) {
-          bot.sendMessage(
-            TELEGRAM_ADMIN_ID,
-            `🔔 <b>Новый пользователь нажал /start</b>\n\n` +
-              `👤 Имя: ${msg.from.first_name || "Не указано"}\n` +
-              `📱 Username: ${username ? "@" + username : "Не указан"}\n` +
-              `🆔 Telegram ID: <code>${userId}</code>\n\n` +
-              `Пользователь не зарегистрирован в системе.`,
-            { parse_mode: "HTML" }
-          );
-        }
       }
     }
   } catch (error) {
@@ -604,6 +599,81 @@ bot.on("message", async (msg) => {
   // Обработка состояний пользователя
   const userState = userStates.get(userId);
   if (userState) {
+    // Обработка создания доступа из заявки
+    if (userState.action === "create_access") {
+      if (userState.step === "name") {
+        userState.name = text;
+        userState.step = "days";
+        userStates.set(userId, userState);
+        
+        bot.sendMessage(
+          chatId,
+          "Введите количество дней подписки (по умолчанию 30):"
+        );
+        return;
+      } else if (userState.step === "days") {
+        const days = parseInt(text);
+        
+        if (isNaN(days) || days <= 0) {
+          bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+          return;
+        }
+        
+        try {
+          const response = await apiClient.createClient({
+            name: userState.name,
+            telegram_id: userState.targetUserId,
+            subscription_days: days,
+            traffic_limit_gb: 100
+          });
+          
+          const client = response.client;
+          
+          bot.sendMessage(
+            chatId,
+            `✅ <b>Доступ создан!</b>\n\n` +
+              `👤 Имя: ${client.name}\n` +
+              `🆔 UUID: <code>${client.uuid}</code>\n` +
+              `📱 Telegram ID: ${client.telegram_id}\n` +
+              `📅 Подписка: ${days} дней\n` +
+              `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
+            { parse_mode: "HTML" }
+          );
+          
+          // Уведомляем клиента
+          const keyboard = {
+            inline_keyboard: [
+              [{ text: "🚀 Погнали!", callback_data: "start_vpn" }]
+            ]
+          };
+
+          bot.sendMessage(
+            userState.targetUserId,
+            `🎉 <b>Ваша заявка одобрена!</b>\n\n` +
+              `Вам создан доступ к VPN серверу.\n\n` +
+              `👤 <b>Имя:</b> ${client.name}\n` +
+              `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n` +
+              `📅 <b>Подписка:</b> ${days} дней\n` +
+              `📊 <b>Лимит трафика:</b> ${client.traffic_limit_gb} GB\n\n` +
+              `Нажмите кнопку ниже для доступа к личному кабинету.`,
+            { 
+              parse_mode: "HTML",
+              reply_markup: keyboard
+            }
+          ).catch(err => {
+            console.error("Не удалось отправить уведомление клиенту:", err);
+          });
+          
+          userStates.delete(userId);
+        } catch (error) {
+          console.error("Ошибка создания доступа:", error);
+          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+          userStates.delete(userId);
+        }
+        return;
+      }
+    }
+
     // Обработка добавления клиента
     if (userState.action === "add_client") {
       if (userState.step === "name") {
@@ -811,7 +881,7 @@ bot.on("message", async (msg) => {
             `/server_status - Статус сервера\n` +
             `/help - Эта справка\n\n` +
             `<b>Кнопки:</b>\n` +
-            `👥 Клиенты - Управление клиентами\n` +
+            `👶 Малютки - Управление клиентами\n` +
             `📊 Статистика - Статистика сервера\n` +
             `📝 Запросы - Запросы на продление\n` +
             `⚙️ Сервер - Статус сервера`,
@@ -841,7 +911,7 @@ bot.on("message", async (msg) => {
 
     if (isAdmin(userId)) {
       // Кнопки администратора
-      if (text === "👥 Клиенты") {
+      if (text === "👶 Малютки") {
         const response = await apiClient.getClients();
         const clients = response.clients || [];
         
@@ -870,6 +940,9 @@ bot.on("message", async (msg) => {
             ],
             [
               { text: "ℹ️ Информация о клиенте", callback_data: "admin_client_info" }
+            ],
+            [
+              { text: "⚠️ Баны и предупреждения", callback_data: "admin_bans_warnings" }
             ]
           ]
         };
@@ -1064,6 +1137,160 @@ bot.on("callback_query", async (query) => {
   const data = query.data;
 
   try {
+    // Кнопка "Погнали" - открыть личный кабинет
+    if (data === "start_vpn") {
+      const client = await getClientByTelegramId(userId);
+
+      if (!client) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
+
+      bot.editMessageText(
+        `👋 Добро пожаловать, <b>${client.name}</b>!\n\n` +
+          `📊 <b>Ваш личный кабинет VPN</b>\n\n` +
+          `Используйте команду /start для доступа к меню.`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        }
+      );
+
+      // Отправляем новое сообщение с клавиатурой
+      bot.sendMessage(
+        chatId,
+        `Используйте кнопки ниже:\n\n` +
+          `📊 <b>Мой VPN</b> - Статистика использования\n` +
+          `🔗 <b>Моя ссылка</b> - Ссылка подключения и QR код\n` +
+          `🔑 <b>Запросить ключ</b> - Продлить подписку\n` +
+          `📝 <b>Мои запросы</b> - История запросов\n` +
+          `❓ <b>Помощь</b> - Справка`,
+        {
+          parse_mode: "HTML",
+          reply_markup: getMainKeyboard(false),
+        }
+      );
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Заявка на доступ
+    if (data === "request_access") {
+      const username = query.from.username || query.from.first_name;
+      
+      bot.editMessageText(
+        `✅ <b>Заявка отправлена!</b>\n\n` +
+          `Администратор получил вашу заявку и свяжется с вами в ближайшее время.\n\n` +
+          `Ваш Telegram ID: <code>${userId}</code>`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        }
+      );
+
+      // Уведомляем админа
+      if (TELEGRAM_ADMIN_ID) {
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: "✅ Создать доступ", callback_data: `create_access_${userId}` }],
+            [{ text: "❌ Отклонить", callback_data: `deny_access_${userId}` }]
+          ]
+        };
+
+        bot.sendMessage(
+          TELEGRAM_ADMIN_ID,
+          `📝 <b>Новая заявка на доступ</b>\n\n` +
+            `👤 Имя: ${query.from.first_name || "Не указано"}\n` +
+            `📱 Username: ${username ? "@" + username : "Не указан"}\n` +
+            `🆔 Telegram ID: <code>${userId}</code>\n\n` +
+            `Выберите действие:`,
+          {
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+      }
+
+      bot.answerCallbackQuery(query.id, { text: "✅ Заявка отправлена" });
+      return;
+    }
+
+    // Создать доступ для пользователя
+    if (data.startsWith("create_access_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const targetUserId = parseInt(data.substring(14));
+
+      userStates.set(userId, { 
+        action: "create_access", 
+        targetUserId: targetUserId,
+        step: "name"
+      });
+
+      bot.editMessageText(
+        `➕ <b>Создание доступа</b>\n\n` +
+          `Telegram ID: <code>${targetUserId}</code>\n\n` +
+          `Введите имя клиента:`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        }
+      );
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Отклонить заявку
+    if (data.startsWith("deny_access_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const targetUserId = parseInt(data.substring(12));
+
+      bot.editMessageText(
+        `❌ <b>Заявка отклонена</b>\n\n` +
+          `Telegram ID: <code>${targetUserId}</code>`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        }
+      );
+
+      // Уведомляем пользователя
+      bot.sendMessage(
+        targetUserId,
+        `❌ <b>Заявка отклонена</b>\n\n` +
+          `К сожалению, администратор отклонил вашу заявку на доступ к VPN.\n` +
+          `Для уточнения причины обратитесь к администратору.`,
+        { parse_mode: "HTML" }
+      ).catch(err => {
+        console.error("Не удалось отправить уведомление пользователю:", err);
+      });
+
+      bot.answerCallbackQuery(query.id, { text: "❌ Заявка отклонена" });
+      return;
+    }
+
     // Админские кнопки управления клиентами
     if (data === "admin_add_client") {
       if (!isAdmin(userId)) {
@@ -1171,6 +1398,75 @@ bot.on("callback_query", async (query) => {
       };
 
       keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "info_cancel" }]);
+
+      bot.sendMessage(chatId, message, {
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      });
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data === "admin_bans_warnings") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const response = await apiClient.getClients();
+      const clients = response.clients || [];
+
+      if (clients.length === 0) {
+        bot.answerCallbackQuery(query.id, {
+          text: "📭 Клиенты не найдены",
+          show_alert: true,
+        });
+        return;
+      }
+
+      // Фильтруем клиентов с предупреждениями или заблокированных
+      const clientsWithIssues = clients.filter(c => 
+        c.warnings_count > 0 || c.status === 'blocked'
+      );
+
+      let message = `⚠️ <b>Баны и предупреждения</b>\n\n`;
+      
+      if (clientsWithIssues.length === 0) {
+        message += "✅ Нет клиентов с предупреждениями или банами";
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+        bot.answerCallbackQuery(query.id);
+        return;
+      }
+
+      message += `Клиентов с проблемами: ${clientsWithIssues.length}\n\n`;
+
+      clientsWithIssues.forEach((client, i) => {
+        const status = client.status === "blocked" ? "🔒 Заблокирован" : "✅ Активен";
+        message += `${i + 1}. <b>${client.name}</b>\n`;
+        message += `   Статус: ${status}\n`;
+        message += `   Предупреждения: ${client.warnings_count || 0}/3\n`;
+        if (client.blocked_reason) {
+          message += `   Причина: ${client.blocked_reason}\n`;
+        }
+        message += `\n`;
+      });
+
+      // Сохраняем список для выбора
+      userStates.set(userId, { 
+        action: "bans_list", 
+        clients: clientsWithIssues 
+      });
+
+      const keyboard = {
+        inline_keyboard: clientsWithIssues.map((client, index) => [{
+          text: `${client.name} (⚠️${client.warnings_count || 0})`,
+          callback_data: `ban_idx_${index}`
+        }])
+      };
 
       bot.sendMessage(chatId, message, {
         parse_mode: "HTML",
@@ -1562,6 +1858,119 @@ bot.on("callback_query", async (query) => {
           });
         }
       }
+    }
+
+    // Выбор клиента из списка банов
+    if (data.startsWith("ban_idx_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const index = parseInt(data.split("_")[2]);
+      const userState = userStates.get(userId);
+      
+      if (!userState || !userState.clients || !userState.clients[index]) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const client = userState.clients[index];
+      const status = client.status === "blocked" ? "🔒 Заблокирован" : "✅ Активен";
+
+      let message = `⚠️ <b>Управление банами</b>\n\n`;
+      message += `👤 <b>Клиент:</b> ${client.name}\n`;
+      message += `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n`;
+      message += `📊 <b>Статус:</b> ${status}\n`;
+      message += `⚠️ <b>Предупреждения:</b> ${client.warnings_count || 0}/3\n`;
+      if (client.blocked_reason) {
+        message += `📝 <b>Причина:</b> ${client.blocked_reason}\n`;
+      }
+
+      const keyboard = {
+        inline_keyboard: []
+      };
+
+      if (client.status === "blocked") {
+        keyboard.inline_keyboard.push([
+          { text: "🔓 Разблокировать", callback_data: `unban_${client.uuid}` }
+        ]);
+      }
+
+      if (client.warnings_count > 0) {
+        keyboard.inline_keyboard.push([
+          { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_${client.uuid}` }
+        ]);
+      }
+
+      keyboard.inline_keyboard.push([
+        { text: "⚠️ Выдать предупреждение", callback_data: `warn_${client.uuid}` }
+      ]);
+
+      bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      });
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Разблокировать клиента
+    if (data.startsWith("unban_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const clientUuid = data.substring(6);
+
+      try {
+        const response = await apiClient.unblockClient(clientUuid);
+        const client = response.client;
+
+        bot.editMessageText(
+          `✅ <b>Клиент разблокирован</b>\n\n` +
+            `👤 Клиент: ${client.name}\n` +
+            `📊 Статус: ✅ Активен`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Уведомляем клиента
+        if (client.telegram_id) {
+          bot.sendMessage(
+            client.telegram_id,
+            `✅ <b>Ваш доступ разблокирован</b>\n\n` +
+              `Вы снова можете пользоваться VPN.\n` +
+              `Пожалуйста, соблюдайте правила использования.`,
+            { parse_mode: "HTML" }
+          );
+        }
+
+        bot.answerCallbackQuery(query.id, { text: "✅ Клиент разблокирован" });
+      } catch (error) {
+        console.error("Ошибка разблокировки:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true
+        });
+      }
+      return;
     }
 
     // Выдать предупреждение
