@@ -3913,6 +3913,21 @@ bot.on("callback_query", async (query) => {
           show_alert: true,
         });
 
+        // Отправляем уведомление клиенту
+        if (client.telegram_id) {
+          try {
+            await bot.sendMessage(
+              client.telegram_id,
+              `📱 <b>Изменение лимита устройств</b>\n\n` +
+                `Твой лимит одновременных подключений изменен на <b>${maxDevices} ${maxDevices === 1 ? 'устройство' : maxDevices < 5 ? 'устройства' : 'устройств'}</b>.\n\n` +
+                `Теперь ты можешь подключаться с ${maxDevices} ${maxDevices === 1 ? 'устройства' : maxDevices < 5 ? 'устройств' : 'устройств'} одновременно.`,
+              { parse_mode: "HTML" }
+            );
+          } catch (notifyError) {
+            console.error("Не удалось отправить уведомление клиенту:", notifyError.message);
+          }
+        }
+
         // Показываем обновленную информацию о клиенте
         const endDate = new Date(client.subscription_end);
         const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
