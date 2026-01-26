@@ -259,7 +259,9 @@ bot.onText(/\/download/, async (msg) => {
       [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
       [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
       [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
-      [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }]
+      [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }],
+      [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
+      [{ text: "💻 Amnezia GitHub", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
     ]
   };
   
@@ -275,14 +277,16 @@ bot.onText(/\/download/, async (msg) => {
       `• <b>FoXray</b> - App Store\n\n` +
       `<b>Windows/Mac/Linux:</b>\n` +
       `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
-      `• <b>v2rayNG</b> (Linux) - GitHub Releases\n\n` +
+      `• <b>v2rayNG</b> (Linux) - GitHub Releases\n` +
+      `• <b>Amnezia VPN</b> (только для ПК!) - Официальный сайт или GitHub\n\n` +
       `<b>Как подключиться:</b>\n` +
       `1. Установи приложение\n` +
       `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
       `3. В приложении нажми "+" → "Import from Clipboard"\n` +
       `4. Вставь vless:// ссылку\n` +
       `5. Подключись\n\n` +
-      `<i>⚠️ Не используй Amnezia на мобильных - не поддерживает наш протокол!</i>`,
+      `<i>⚠️ Amnezia работает ТОЛЬКО на ПК (Windows/Mac/Linux)!</i>\n` +
+      `<i>⚠️ На телефонах (Android/iOS) используй v2rayNG, V2Box или Streisand!</i>`,
     { 
       parse_mode: "HTML",
       reply_markup: keyboard
@@ -1061,7 +1065,9 @@ bot.on("message", async (msg) => {
           [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
           [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
           [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
-          [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }]
+          [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }],
+          [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
+          [{ text: "💻 Amnezia GitHub", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
         ]
       };
       
@@ -1077,14 +1083,16 @@ bot.on("message", async (msg) => {
           `• <b>FoXray</b> - App Store\n\n` +
           `<b>Windows/Mac/Linux:</b>\n` +
           `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
-          `• <b>v2rayNG</b> (Linux) - GitHub Releases\n\n` +
+          `• <b>v2rayNG</b> (Linux) - GitHub Releases\n` +
+          `• <b>Amnezia VPN</b> (только для ПК!) - Официальный сайт или GitHub\n\n` +
           `<b>Как подключиться:</b>\n` +
           `1. Установи приложение\n` +
           `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
           `3. В приложении нажми "+" → "Import from Clipboard"\n` +
           `4. Вставь vless:// ссылку\n` +
           `5. Подключись\n\n` +
-          `<i>⚠️ Не используй Amnezia на мобильных - не поддерживает наш протокол!</i>`,
+          `<i>⚠️ Amnezia работает ТОЛЬКО на ПК (Windows/Mac/Linux)!</i>\n` +
+          `<i>⚠️ На телефонах (Android/iOS) используй v2rayNG, V2Box или Streisand!</i>`,
         { 
           parse_mode: "HTML",
           reply_markup: keyboard
