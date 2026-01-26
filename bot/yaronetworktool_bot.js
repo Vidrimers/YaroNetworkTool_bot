@@ -1985,12 +1985,18 @@ bot.on("callback_query", async (query) => {
 
       const clientUuid = data.substring(5);
 
+      // Сохраняем UUID в состояние
+      userStates.set(userId, {
+        action: "warn_select_reason",
+        clientUuid: clientUuid
+      });
+
       const keyboard = {
         inline_keyboard: [
-          [{ text: "🚫 Торренты/P2P", callback_data: `warn_reason_${clientUuid}_torrents` }],
-          [{ text: "🔑 Передача ключа", callback_data: `warn_reason_${clientUuid}_sharing` }],
-          [{ text: "⚡ Злоупотребление", callback_data: `warn_reason_${clientUuid}_abuse` }],
-          [{ text: "✏️ Другая причина", callback_data: `warn_custom_${clientUuid}` }],
+          [{ text: "🚫 Торренты/P2P", callback_data: `warn_reason_torrents` }],
+          [{ text: "🔑 Передача ключа", callback_data: `warn_reason_sharing` }],
+          [{ text: "⚡ Злоупотребление", callback_data: `warn_reason_abuse` }],
+          [{ text: "✏️ Другая причина", callback_data: `warn_custom` }],
           [{ text: "❌ Отмена", callback_data: "warn_cancel" }]
         ]
       };
@@ -2019,9 +2025,17 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const parts = data.split("_");
-      const clientUuid = parts[2];
-      const reasonType = parts[3];
+      const userState = userStates.get(userId);
+      if (!userState || !userState.clientUuid) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const clientUuid = userState.clientUuid;
+      const reasonType = data.split("_")[2];
 
       const reasons = {
         torrents: "Использование торрентов/P2P",
@@ -2076,6 +2090,7 @@ bot.on("callback_query", async (query) => {
           bot.sendMessage(client.telegram_id, clientMessage, { parse_mode: "HTML" });
         }
 
+        userStates.delete(userId);
         bot.answerCallbackQuery(query.id, { text: "✅ Предупреждение выдано" });
       } catch (error) {
         console.error("Ошибка выдачи предупреждения:", error);
@@ -2088,7 +2103,7 @@ bot.on("callback_query", async (query) => {
     }
 
     // Своя причина предупреждения
-    if (data.startsWith("warn_custom_")) {
+    if (data === "warn_custom") {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
           text: "❌ Доступ запрещен",
@@ -2097,11 +2112,18 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.substring(12);
+      const userState = userStates.get(userId);
+      if (!userState || !userState.clientUuid) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка: клиент не найден",
+          show_alert: true,
+        });
+        return;
+      }
 
       userStates.set(userId, {
         action: "warn_custom",
-        clientUuid: clientUuid,
+        clientUuid: userState.clientUuid,
         messageId: query.message.message_id
       });
 
