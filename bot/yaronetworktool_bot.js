@@ -459,7 +459,14 @@ bot.onText(/\/add_client/, async (msg) => {
     chatId,
     "➕ <b>Добавление нового клиента</b>\n\n" +
       "Введи имя клиента:",
-    { parse_mode: "HTML" }
+    { 
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Отмена", callback_data: "cancel_add_client" }]
+        ]
+      }
+    }
   );
 });
 
@@ -1556,7 +1563,12 @@ bot.on("callback_query", async (query) => {
         {
           chat_id: chatId,
           message_id: query.message.message_id,
-          parse_mode: "HTML"
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "❌ Отмена", callback_data: "cancel_create_access" }]
+            ]
+          }
         }
       );
 
@@ -1617,7 +1629,14 @@ bot.on("callback_query", async (query) => {
         chatId,
         "➕ <b>Добавление нового клиента</b>\n\n" +
           "Введи имя клиента:",
-        { parse_mode: "HTML" }
+        { 
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "❌ Отмена", callback_data: "cancel_add_client" }]
+            ]
+          }
+        }
       );
       
       bot.answerCallbackQuery(query.id);
@@ -3986,6 +4005,58 @@ bot.on("callback_query", async (query) => {
           show_alert: true,
         });
       }
+      return;
+    }
+
+    // Отмена добавления клиента
+    if (data === "cancel_add_client") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      userStates.delete(userId);
+
+      bot.answerCallbackQuery(query.id, {
+        text: "❌ Добавление клиента отменено",
+        show_alert: true,
+      });
+
+      bot.sendMessage(
+        chatId,
+        "❌ Добавление клиента отменено",
+        { reply_markup: getMainKeyboard(true) }
+      );
+      return;
+    }
+
+    // Отмена создания доступа
+    if (data === "cancel_create_access") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      userStates.delete(userId);
+
+      bot.editMessageText(
+        "❌ Создание доступа отменено",
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+        }
+      );
+
+      bot.answerCallbackQuery(query.id, {
+        text: "❌ Создание доступа отменено",
+        show_alert: true,
+      });
       return;
     }
 
