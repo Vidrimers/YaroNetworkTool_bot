@@ -2009,7 +2009,12 @@ bot.on("callback_query", async (query) => {
           parse_mode: "HTML",
           reply_markup: keyboard
         }
-      );
+      ).catch(err => {
+        // Игнорируем ошибку "message is not modified"
+        if (!err.message.includes("message is not modified")) {
+          console.error("Ошибка редактирования сообщения:", err);
+        }
+      });
 
       bot.answerCallbackQuery(query.id);
       return;
@@ -2069,7 +2074,12 @@ bot.on("callback_query", async (query) => {
             message_id: query.message.message_id,
             parse_mode: "HTML"
           }
-        );
+        ).catch(err => {
+          // Игнорируем ошибку "message is not modified"
+          if (!err.message.includes("message is not modified")) {
+            console.error("Ошибка редактирования сообщения:", err);
+          }
+        });
 
         // Уведомляем клиента
         if (client.telegram_id) {
