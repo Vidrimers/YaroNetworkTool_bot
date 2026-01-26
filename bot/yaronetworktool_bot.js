@@ -1124,6 +1124,9 @@ bot.on("message", async (msg) => {
             ],
             [
               { text: "📱 Проверить устройства", callback_data: "admin_check_devices" }
+            ],
+            [
+              { text: "🔍 Проверить торренты", callback_data: "admin_check_torrents" }
             ]
           ]
         };
@@ -2076,6 +2079,119 @@ bot.on("callback_query", async (query) => {
         
         bot.editMessageText(
           `📱 <b>Проверка устройств</b>\n\n` +
+            `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Проверка торрентов вручную
+    if (data === "admin_check_torrents") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔍 <b>Проверка торрентов</b>\n\n` +
+            `⏳ Запуск проверки...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Запускаем скрипт обнаружения торрентов
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const scriptPath = join(__dirname, 'torrent-detector.js');
+        
+        const { stdout, stderr } = await execAsync(`node "${scriptPath}"`);
+        
+        // Парсим вывод скрипта
+        let totalClients = 0;
+        let suspiciousCount = 0;
+        const clientsList = [];
+        
+        // Ищем строки с результатами
+        const totalMatch = stdout.match(/Всего активных клиентов:\s*(\d+)/);
+        const suspiciousMatch = stdout.match(/Подозрительная активность:\s*(\d+)/);
+        
+        if (totalMatch) {
+          totalClients = parseInt(totalMatch[1]);
+        }
+        if (suspiciousMatch) {
+          suspiciousCount = parseInt(suspiciousMatch[1]);
+        }
+        
+        // Парсим список клиентов с подозрительной активностью
+        const clientsSection = stdout.match(/Клиенты с подозрительной активностью:\n([\s\S]*?)Проверка завершена/);
+        if (clientsSection && clientsSection[1]) {
+          const lines = clientsSection[1].trim().split('\n');
+          lines.forEach(line => {
+            const match = line.match(/\d+\.\s+(.+?)\s+-\s+([\d.]+)\s+GB\/день\s+\((.+?)\)/);
+            if (match) {
+              clientsList.push({
+                name: match[1],
+                traffic: match[2],
+                status: match[3]
+              });
+            }
+          });
+        }
+        
+        let resultMessage = `🔍 <b>Проверка торрентов</b>\n\n`;
+        resultMessage += `✅ Проверка завершена\n\n`;
+        resultMessage += `📊 <b>Результаты:</b>\n`;
+        resultMessage += `• Всего активных клиентов: ${totalClients}\n`;
+        resultMessage += `• Подозрительная активность: ${suspiciousCount}\n\n`;
+        
+        if (suspiciousCount > 0) {
+          resultMessage += `⚠️ <b>Клиенты с подозрительной активностью:</b>\n`;
+          clientsList.forEach((client, i) => {
+            resultMessage += `${i + 1}. <b>${client.name}</b>\n`;
+            resultMessage += `   📊 ${client.traffic} GB/день\n`;
+            resultMessage += `   ⚠️ ${client.status}\n`;
+          });
+          resultMessage += `\n📨 Предупреждения отправлены клиентам\n\n`;
+        } else {
+          resultMessage += `✅ Подозрительной активности не обнаружено\n\n`;
+        }
+        
+        resultMessage += `<i>💡 Порог: 30 GB/день\nМакс. предупреждений: 3\nДействие: автоблокировка</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Проверка завершена",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка проверки торрентов:", error);
+        
+        bot.editMessageText(
+          `🔍 <b>Проверка торрентов</b>\n\n` +
             `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
           {
             chat_id: chatId,
