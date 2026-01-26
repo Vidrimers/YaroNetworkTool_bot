@@ -41,6 +41,15 @@ async function getClientByTelegramId(telegramId) {
   }
 }
 
+// Вспомогательная функция для форматирования даты в формате DD/MM/YYYY
+function formatDate(date) {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 // Состояния пользователей для интерактивных команд
 const userStates = new Map();
 
@@ -69,7 +78,7 @@ function getMainKeyboard(isAdminUser = false) {
       keyboard: [
         [{ text: '📊 Мой VPN' }, { text: '🔗 Моя ссылка' }],
         [{ text: '🔑 Запросить ключ' }, { text: '📝 Мои запросы' }],
-        [{ text: '❓ Помощь' }]
+        [{ text: '📥 Скачать VPN' }, { text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -222,16 +231,60 @@ bot.onText(/\/help/, async (msg) => {
         `/my_vpn - Моя статистика VPN\n` +
         `/my_link - Ссылка подключения\n` +
         `/my_requests - Мои запросы\n` +
+        `/download - Скачать VPN клиент\n` +
         `/terms - Правила использования\n` +
         `/help - Эта справка\n\n` +
         `<b>Кнопки:</b>\n` +
         `📊 Мой VPN - Статистика использования\n` +
         `🔗 Моя ссылка - Ссылка и QR код\n` +
         `🔑 Запросить ключ - Продлить подписку\n` +
-        `📝 Мои запросы - История запросов`,
+        `📝 Мои запросы - История запросов\n` +
+        `📥 Скачать VPN - Инструкция по установке`,
       { parse_mode: "HTML" }
     );
   }
+});
+
+// Команда /download - Скачать VPN клиент
+bot.onText(/\/download/, async (msg) => {
+  const chatId = msg.chat.id;
+  
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🌐 Официальный сайт Amnezia", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
+      [{ text: "📦 GitHub Releases", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+    ]
+  };
+  
+  bot.sendMessage(
+    chatId,
+    `📥 <b>Скачать VPN клиент Amnezia</b>\n\n` +
+      `<b>Шаг 1: Скачай приложение</b>\n` +
+      `• Попробуй скачать с официального сайта (кнопка ниже)\n` +
+      `• Если сайт недоступен, используй GitHub Releases\n` +
+      `• Выбери версию для своего устройства:\n` +
+      `  - Windows: .exe файл\n` +
+      `  - macOS: .dmg файл\n` +
+      `  - Android: .apk файл\n` +
+      `  - iOS: через App Store\n` +
+      `  - Linux: .deb или .AppImage\n\n` +
+      `<b>Шаг 2: Установи приложение</b>\n` +
+      `• Запусти скачанный файл\n` +
+      `• Следуй инструкциям установщика\n\n` +
+      `<b>Шаг 3: Добавь ключ подключения</b>\n` +
+      `• Открой приложение Amnezia\n` +
+      `• Нажми "Добавить сервер" или "+" (плюс)\n` +
+      `• Выбери "Импортировать конфигурацию"\n` +
+      `• Вставь ключ, который выдал админ\n` +
+      `• Нажми "Подключиться"\n\n` +
+      `<b>Получить ключ:</b>\n` +
+      `Используй команду /my_link или кнопку "🔗 Моя ссылка" для получения ключа подключения.\n\n` +
+      `<i>Если возникли проблемы, обратись к администратору.</i>`,
+    { 
+      parse_mode: "HTML",
+      reply_markup: keyboard
+    }
+  );
 });
 
 // Команда /terms - Правила использования
@@ -349,10 +402,10 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Email:</b> ${client.email || "не указан"}\n\n`;
     message += `<b>Статус:</b> ${status}\n`;
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
-    message += `<b>Начало:</b> ${new Date(client.subscription_start).toLocaleDateString()}\n`;
-    message += `<b>Конец:</b> ${endDate.toLocaleDateString()}\n\n`;
+    message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
+    message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
-    message += `<b>Сброс трафика:</b> ${new Date(client.traffic_reset_date).toLocaleDateString()}\n`;
+    message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n`;
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
   } catch (error) {
@@ -491,9 +544,9 @@ bot.onText(/\/my_vpn/, async (msg) => {
     message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
     message += `<b>Статус:</b> ${status}\n`;
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
-    message += `<b>Конец подписки:</b> ${endDate.toLocaleDateString()}\n\n`;
+    message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
-    message += `<b>Сброс трафика:</b> ${new Date(clientData.traffic_reset_date).toLocaleDateString()}\n`;
+    message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
 
     if (daysLeft <= 7 && daysLeft > 0) {
       message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
@@ -577,7 +630,7 @@ bot.onText(/\/my_requests/, async (msg) => {
         message += `   Причина: ${req.denial_reason}\n`;
       }
       
-      message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+      message += `   Дата: ${formatDate(req.created_at)}\n\n`;
     });
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
@@ -968,6 +1021,46 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    if (text === "📥 Скачать VPN") {
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: "🌐 Официальный сайт Amnezia", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
+          [{ text: "📦 GitHub Releases", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+        ]
+      };
+      
+      bot.sendMessage(
+        chatId,
+        `📥 <b>Скачать VPN клиент Amnezia</b>\n\n` +
+          `<b>Шаг 1: Скачай приложение</b>\n` +
+          `• Попробуй скачать с официального сайта (кнопка ниже)\n` +
+          `• Если сайт недоступен, используй GitHub Releases\n` +
+          `• Выбери версию для своего устройства:\n` +
+          `  - Windows: .exe файл\n` +
+          `  - macOS: .dmg файл\n` +
+          `  - Android: .apk файл\n` +
+          `  - iOS: через App Store\n` +
+          `  - Linux: .deb или .AppImage\n\n` +
+          `<b>Шаг 2: Установи приложение</b>\n` +
+          `• Запусти скачанный файл\n` +
+          `• Следуй инструкциям установщика\n\n` +
+          `<b>Шаг 3: Добавь ключ подключения</b>\n` +
+          `• Открой приложение Amnezia\n` +
+          `• Нажми "Добавить сервер" или "+" (плюс)\n` +
+          `• Выбери "Импортировать конфигурацию"\n` +
+          `• Вставь ключ, который выдал админ\n` +
+          `• Нажми "Подключиться"\n\n` +
+          `<b>Получить ключ:</b>\n` +
+          `Используй команду /my_link или кнопку "🔗 Моя ссылка" для получения ключа подключения.\n\n` +
+          `<i>Если возникли проблемы, обратись к администратору.</i>`,
+        { 
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        }
+      );
+      return;
+    }
+
     if (isAdmin(userId)) {
       // Кнопки администратора
       if (text === "👶 Малютки") {
@@ -1043,7 +1136,7 @@ bot.on("message", async (msg) => {
           message += `${i + 1}. <b>${req.client_name}</b>\n`;
           message += `   UUID: <code>${req.client_uuid}</code>\n`;
           message += `   Запрошено: ${req.requested_months} мес. (${req.requested_days} дней)\n`;
-          message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+          message += `   Дата: ${formatDate(req.created_at)}\n\n`;
         });
         
         // Сохраняем список запросов в состояние
@@ -1109,7 +1202,7 @@ bot.on("message", async (msg) => {
         message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
-        message += `<b>Конец подписки:</b> ${endDate.toLocaleDateString()}\n\n`;
+        message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
         message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
 
         if (daysLeft <= 7 && daysLeft > 0) {
@@ -1207,7 +1300,7 @@ bot.on("message", async (msg) => {
             message += `   Причина: ${req.denial_reason}\n`;
           }
           
-          message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+          message += `   Дата: ${formatDate(req.created_at)}\n\n`;
         });
 
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
@@ -2366,7 +2459,7 @@ bot.on("callback_query", async (query) => {
       message += `👤 <b>Клиент:</b> ${req.client_name}\n`;
       message += `🆔 <b>UUID:</b> <code>${req.client_uuid}</code>\n`;
       message += `📅 <b>Запрошено:</b> ${req.requested_months} мес. (${req.requested_days} дней)\n`;
-      message += `📆 <b>Дата запроса:</b> ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+      message += `📆 <b>Дата запроса:</b> ${formatDate(req.created_at)}\n\n`;
       message += `Выбери действие:`;
 
       const keyboard = {
@@ -2441,15 +2534,15 @@ bot.on("callback_query", async (query) => {
           message += `<b>Email:</b> ${clientData.email || "не указан"}\n\n`;
           message += `<b>Статус:</b> ${status}\n`;
           message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
-          message += `<b>Начало:</b> ${new Date(clientData.subscription_start).toLocaleDateString()}\n`;
-          message += `<b>Конец:</b> ${endDate.toLocaleDateString()}\n\n`;
+          message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
+          message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
           message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB\n`;
-          message += `<b>Сброс трафика:</b> ${new Date(clientData.traffic_reset_date).toLocaleDateString()}\n`;
+          message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
           
           if (clientData.warnings_count > 0) {
             message += `\n⚠️ <b>Предупреждения:</b> ${clientData.warnings_count}/3\n`;
             if (clientData.last_warning_date) {
-              message += `<b>Последнее:</b> ${new Date(clientData.last_warning_date).toLocaleDateString()}\n`;
+              message += `<b>Последнее:</b> ${formatDate(clientData.last_warning_date)}\n`;
             }
           }
 
