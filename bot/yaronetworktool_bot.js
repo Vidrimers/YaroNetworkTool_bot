@@ -2211,88 +2211,45 @@ bot.on("callback_query", async (query) => {
     // Проверка VPN статуса (для клиентов)
     if (data === "check_vpn_status") {
       try {
-        bot.editMessageText(
-          `🔍 <b>Проверка VPN</b>\n\n` +
-            `⏳ Определяю твой IP адрес и местоположение...`,
-          {
-            chat_id: chatId,
-            message_id: query.message.message_id,
-            parse_mode: "HTML"
-          }
-        );
+        const checkMessage = 
+          `🔍 <b>Как проверить VPN</b>\n\n` +
+          `<b>Способ 1: Через браузер</b>\n` +
+          `1. Открой сайт: <code>2ip.io</code>\n` +
+          `2. Посмотри свой IP адрес\n\n` +
+          `✅ <b>Если VPN подключен:</b>\n` +
+          `IP: <code>${SERVER_IP}</code>\n` +
+          `Страна: Нидерланды 🇳🇱\n\n` +
+          `⚠️ <b>Если VPN не подключен:</b>\n` +
+          `Увидишь свой реальный IP и страну\n\n` +
+          `<b>Способ 2: Команда боту</b>\n` +
+          `Отправь боту команду /checkip и я помогу проверить`;
 
-        // Используем бесплатный API для определения IP и геолокации
-        const http = await import('http');
-        
-        const getIpInfo = () => {
-          return new Promise((resolve, reject) => {
-            http.get('http://ip-api.com/json/', (res) => {
-              let data = '';
-              res.on('data', (chunk) => { data += chunk; });
-              res.on('end', () => {
-                try {
-                  resolve(JSON.parse(data));
-                } catch (e) {
-                  reject(e);
-                }
-              });
-            }).on('error', reject);
-          });
-        };
-
-        const ipInfo = await getIpInfo();
-
-        // Логируем ответ для отладки
-        console.log('IP API Response:', ipInfo);
-
-        // Проверяем наличие данных
-        if (!ipInfo.query) {
-          throw new Error(`API не вернул IP адрес. Ответ: ${JSON.stringify(ipInfo)}`);
-        }
-
-        // Флаги стран (emoji)
-        const countryFlags = {
-          'RU': '🇷🇺', 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
-          'NL': '🇳🇱', 'UA': '🇺🇦', 'PL': '🇵🇱', 'TR': '🇹🇷', 'CN': '🇨🇳',
-          'JP': '🇯🇵', 'KR': '🇰🇷', 'IN': '🇮🇳', 'BR': '🇧🇷', 'CA': '🇨🇦',
-          'AU': '🇦🇺', 'IT': '🇮🇹', 'ES': '🇪🇸', 'SE': '🇸🇪', 'NO': '🇳🇴',
-          'FI': '🇫🇮', 'DK': '🇩🇰', 'CH': '🇨🇭', 'AT': '🇦🇹', 'BE': '🇧🇪'
-        };
-
-        const countryFlag = countryFlags[ipInfo.countryCode] || '🌍';
-
-        let resultMessage = `🔍 <b>Проверка VPN</b>\n\n`;
-        resultMessage += `✅ <b>Результаты:</b>\n\n`;
-        resultMessage += `🌐 <b>IP адрес:</b> <code>${ipInfo.query}</code>\n`;
-        resultMessage += `🌍 <b>Страна:</b> ${ipInfo.country} ${countryFlag}\n`;
-        resultMessage += `🏙️ <b>Город:</b> ${ipInfo.city}\n`;
-        resultMessage += `🏢 <b>Провайдер:</b> ${ipInfo.isp}\n\n`;
-        
-        // Проверяем, подключен ли VPN (если IP совпадает с сервером)
-        if (ipInfo.query === SERVER_IP) {
-          resultMessage += `✅ <b>VPN подключен!</b>\n`;
-          resultMessage += `Твой трафик защищен и проходит через наш сервер.`;
-        } else {
-          resultMessage += `⚠️ <b>VPN не подключен</b>\n`;
-          resultMessage += `Это твой реальный IP адрес. Подключи VPN для защиты.`;
-        }
-
-        bot.editMessageText(resultMessage, {
+        bot.editMessageText(checkMessage, {
           chat_id: chatId,
           message_id: query.message.message_id,
-          parse_mode: "HTML"
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "🌐 Открыть 2ip.io", url: "https://2ip.io" }
+              ],
+              [
+                { text: "🔙 Назад", callback_data: "my_vpn" }
+              ]
+            ]
+          }
         });
 
         bot.answerCallbackQuery(query.id, {
-          text: "✅ Проверка завершена",
+          text: "📱 Выбери способ проверки",
           show_alert: false,
         });
       } catch (error) {
-        console.error("Ошибка проверки VPN:", error);
+        console.error("Ошибка:", error);
         
         bot.editMessageText(
           `🔍 <b>Проверка VPN</b>\n\n` +
-            `❌ Ошибка определения IP адреса.\n` +
+            `❌ Ошибка.\n` +
             `Попробуй позже.\n\n` +
             `<i>Детали: ${error.message}</i>`,
           {
@@ -2303,7 +2260,7 @@ bot.on("callback_query", async (query) => {
         );
 
         bot.answerCallbackQuery(query.id, {
-          text: "❌ Ошибка проверки",
+          text: "❌ Ошибка",
           show_alert: true,
         });
       }
