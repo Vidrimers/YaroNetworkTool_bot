@@ -1192,11 +1192,11 @@ bot.on("message", async (msg) => {
         }
         
         if (expiringClients.length > 0) {
-          message += `⏰ <b>Истекающие подписки (< 7 дней):</b> ${expiringClients.length}\n`;
+          message += `⏰ <b>Истекающие подписки (&lt; 7 дней):</b> ${expiringClients.length}\n`;
         }
         
         if (highTrafficClients.length > 0) {
-          message += `⚠️ <b>Превышение трафика (> 80%):</b> ${highTrafficClients.length}\n`;
+          message += `⚠️ <b>Превышение трафика (&gt; 80%):</b> ${highTrafficClients.length}\n`;
         }
         
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
