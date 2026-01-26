@@ -1348,7 +1348,7 @@ bot.on("message", async (msg) => {
         let message = `🔗 <b>Ссылка подключения</b>\n\n`;
         
         if (vlessLink) {
-          message += `<b>Твойа ссылка для подключения:</b>\n`;
+          message += `<b>Твоя ссылка для подключения:</b>\n`;
           message += `<code>${vlessLink}</code>\n\n`;
           message += `📱 <b>Как подключиться:</b>\n`;
           message += `1. Скопируй ссылку выше\n`;
