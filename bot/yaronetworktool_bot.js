@@ -1261,7 +1261,18 @@ bot.on("message", async (msg) => {
           message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
         }
 
-        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 Проверка VPN", callback_data: "check_vpn_status" }
+            ]
+          ]
+        };
+
+        bot.sendMessage(chatId, message, { 
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
       } else if (text === "🔗 Моя ссылка") {
         // Генерируем vless ссылку
         let vlessLink = '';
@@ -2066,6 +2077,108 @@ bot.on("callback_query", async (query) => {
         bot.editMessageText(
           `📱 <b>Проверка устройств</b>\n\n` +
             `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Проверка VPN статуса (для клиентов)
+    if (data === "check_vpn_status") {
+      try {
+        bot.editMessageText(
+          `🔍 <b>Проверка VPN</b>\n\n` +
+            `⏳ Определяю твой IP адрес и местоположение...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Используем бесплатный API для определения IP и геолокации
+        const http = await import('http');
+        
+        const getIpInfo = () => {
+          return new Promise((resolve, reject) => {
+            http.get('http://ip-api.com/json/', (res) => {
+              let data = '';
+              res.on('data', (chunk) => { data += chunk; });
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data));
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            }).on('error', reject);
+          });
+        };
+
+        const ipInfo = await getIpInfo();
+
+        // Логируем ответ для отладки
+        console.log('IP API Response:', ipInfo);
+
+        // Проверяем наличие данных
+        if (!ipInfo.query) {
+          throw new Error(`API не вернул IP адрес. Ответ: ${JSON.stringify(ipInfo)}`);
+        }
+
+        // Флаги стран (emoji)
+        const countryFlags = {
+          'RU': '🇷🇺', 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
+          'NL': '🇳🇱', 'UA': '🇺🇦', 'PL': '🇵🇱', 'TR': '🇹🇷', 'CN': '🇨🇳',
+          'JP': '🇯🇵', 'KR': '🇰🇷', 'IN': '🇮🇳', 'BR': '🇧🇷', 'CA': '🇨🇦',
+          'AU': '🇦🇺', 'IT': '🇮🇹', 'ES': '🇪🇸', 'SE': '🇸🇪', 'NO': '🇳🇴',
+          'FI': '🇫🇮', 'DK': '🇩🇰', 'CH': '🇨🇭', 'AT': '🇦🇹', 'BE': '🇧🇪'
+        };
+
+        const countryFlag = countryFlags[ipInfo.countryCode] || '🌍';
+
+        let resultMessage = `🔍 <b>Проверка VPN</b>\n\n`;
+        resultMessage += `✅ <b>Результаты:</b>\n\n`;
+        resultMessage += `🌐 <b>IP адрес:</b> <code>${ipInfo.query}</code>\n`;
+        resultMessage += `🌍 <b>Страна:</b> ${ipInfo.country} ${countryFlag}\n`;
+        resultMessage += `🏙️ <b>Город:</b> ${ipInfo.city}\n`;
+        resultMessage += `🏢 <b>Провайдер:</b> ${ipInfo.isp}\n\n`;
+        
+        // Проверяем, подключен ли VPN (если IP совпадает с сервером)
+        if (ipInfo.query === SERVER_IP) {
+          resultMessage += `✅ <b>VPN подключен!</b>\n`;
+          resultMessage += `Твой трафик защищен и проходит через наш сервер.`;
+        } else {
+          resultMessage += `⚠️ <b>VPN не подключен</b>\n`;
+          resultMessage += `Это твой реальный IP адрес. Подключи VPN для защиты.`;
+        }
+
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Проверка завершена",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка проверки VPN:", error);
+        
+        bot.editMessageText(
+          `🔍 <b>Проверка VPN</b>\n\n` +
+            `❌ Ошибка определения IP адреса.\n` +
+            `Попробуй позже.\n\n` +
+            `<i>Детали: ${error.message}</i>`,
           {
             chat_id: chatId,
             message_id: query.message.message_id,
