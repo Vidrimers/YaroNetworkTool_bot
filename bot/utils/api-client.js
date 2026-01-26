@@ -97,7 +97,7 @@ class APIClient {
    * @returns {Promise<Object>} - Созданный клиент
    */
   async createClient(clientData) {
-    return this.request("/api/v1/clients", "POST", clientData);
+    return this.request("/api/clients", "POST", clientData);
   }
 
   /**
@@ -105,7 +105,7 @@ class APIClient {
    * @returns {Promise<Array>} - Список клиентов
    */
   async getClients() {
-    return this.request("/api/v1/clients", "GET");
+    return this.request("/api/clients", "GET");
   }
 
   /**
@@ -114,7 +114,7 @@ class APIClient {
    * @returns {Promise<Object>} - Информация о клиенте
    */
   async getClient(uuid) {
-    return this.request(`/api/v1/clients/${uuid}`, "GET");
+    return this.request(`/api/clients/${uuid}`, "GET");
   }
 
   /**
@@ -123,7 +123,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат удаления
    */
   async deleteClient(uuid) {
-    return this.request(`/api/v1/clients/${uuid}`, "DELETE");
+    return this.request(`/api/clients/${uuid}`, "DELETE");
   }
 
   /**
@@ -133,7 +133,7 @@ class APIClient {
    * @returns {Promise<Object>} - Обновленный клиент
    */
   async updateClient(uuid, updateData) {
-    return this.request(`/api/v1/clients/${uuid}`, "PUT", updateData);
+    return this.request(`/api/clients/${uuid}`, "PUT", updateData);
   }
 
   // ============================================================================
@@ -146,7 +146,7 @@ class APIClient {
    * @returns {Promise<Object>} - Статистика трафика
    */
   async getClientTraffic(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/traffic`, "GET");
+    return this.request(`/api/clients/${uuid}/traffic`, "GET");
   }
 
   /**
@@ -155,7 +155,7 @@ class APIClient {
    * @returns {Promise<Object>} - Статус клиента
    */
   async getClientStatus(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/status`, "GET");
+    return this.request(`/api/clients/${uuid}/status`, "GET");
   }
 
   /**
@@ -164,7 +164,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат сброса
    */
   async resetClientTraffic(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/reset`, "POST");
+    return this.request(`/api/clients/${uuid}/reset`, "POST");
   }
 
   /**
@@ -172,7 +172,7 @@ class APIClient {
    * @returns {Promise<Array>} - Список активных подключений
    */
   async getActiveConnections() {
-    return this.request("/api/v1/stats/active", "GET");
+    return this.request("/api/stats/active", "GET");
   }
 
   /**
@@ -180,7 +180,7 @@ class APIClient {
    * @returns {Promise<Array>} - Топ клиентов
    */
   async getTopClients() {
-    return this.request("/api/v1/stats/top", "GET");
+    return this.request("/api/stats/top", "GET");
   }
 
   // ============================================================================
@@ -193,7 +193,7 @@ class APIClient {
    * @returns {Promise<Object>} - Информация о подписке
    */
   async getClientSubscription(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/subscription`, "GET");
+    return this.request(`/api/clients/${uuid}/subscription`, "GET");
   }
 
   /**
@@ -203,7 +203,7 @@ class APIClient {
    * @returns {Promise<Object>} - Обновленная подписка
    */
   async extendSubscription(uuid, days) {
-    return this.request(`/api/v1/clients/${uuid}/extend`, "POST", { days });
+    return this.request(`/api/clients/${uuid}/extend`, "POST", { days });
   }
 
   /**
@@ -213,7 +213,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат блокировки
    */
   async blockClient(uuid, reason) {
-    return this.request(`/api/v1/clients/${uuid}/block`, "POST", { reason });
+    return this.request(`/api/clients/${uuid}/block`, "POST", { reason });
   }
 
   /**
@@ -222,7 +222,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат разблокировки
    */
   async unblockClient(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/unblock`, "POST");
+    return this.request(`/api/clients/${uuid}/unblock`, "POST");
   }
 
   /**
@@ -232,7 +232,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат
    */
   async warnClient(uuid, reason) {
-    return this.request(`/api/v1/clients/${uuid}/warn`, "POST", { reason });
+    return this.request(`/api/clients/${uuid}/warn`, "POST", { reason });
   }
 
   /**
@@ -241,7 +241,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат
    */
   async resetClientWarnings(uuid) {
-    return this.request(`/api/v1/clients/${uuid}/reset-warnings`, "POST");
+    return this.request(`/api/clients/${uuid}/reset-warnings`, "POST");
   }
 
   // ============================================================================
@@ -254,7 +254,7 @@ class APIClient {
    * @returns {Promise<Object>} - Созданный запрос
    */
   async createExtensionRequest(requestData) {
-    return this.request("/api/v1/extension-requests/create", "POST", requestData);
+    return this.request("/api/extension-requests/create", "POST", requestData);
   }
 
   /**
@@ -262,7 +262,7 @@ class APIClient {
    * @returns {Promise<Array>} - Список запросов
    */
   async getExtensionRequests() {
-    return this.request("/api/v1/extension-requests", "GET");
+    return this.request("/api/extension-requests", "GET");
   }
 
   /**
@@ -271,7 +271,7 @@ class APIClient {
    * @returns {Promise<Object>} - Запрос
    */
   async getExtensionRequest(id) {
-    return this.request(`/api/v1/extension-requests/${id}`, "GET");
+    return this.request(`/api/extension-requests/${id}`, "GET");
   }
 
   /**
@@ -285,7 +285,7 @@ class APIClient {
     const data = {};
     if (days) data.approved_days = days;
     if (adminTelegramId) data.admin_telegram_id = adminTelegramId;
-    return this.request(`/api/v1/extension-requests/${id}/approve`, "POST", data);
+    return this.request(`/api/extension-requests/${id}/approve`, "POST", data);
   }
 
   /**
@@ -295,7 +295,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат отказа
    */
   async denyExtensionRequest(id, reason) {
-    return this.request(`/api/v1/extension-requests/${id}/deny`, "POST", { reason });
+    return this.request(`/api/extension-requests/${id}/deny`, "POST", { reason });
   }
 
   /**
@@ -305,7 +305,7 @@ class APIClient {
    * @returns {Promise<Object>} - Обновленный запрос
    */
   async changeExtensionPeriod(id, days) {
-    return this.request(`/api/v1/extension-requests/${id}/period`, "PUT", { days });
+    return this.request(`/api/extension-requests/${id}/period`, "PUT", { days });
   }
 
   /**
@@ -314,7 +314,7 @@ class APIClient {
    * @returns {Promise<Array>} - Список запросов клиента
    */
   async getClientExtensionRequests(uuid) {
-    return this.request(`/api/v1/extension-requests/client/${uuid}`, "GET");
+    return this.request(`/api/extension-requests/client/${uuid}`, "GET");
   }
 
   // ============================================================================
@@ -326,7 +326,7 @@ class APIClient {
    * @returns {Promise<Object>} - Статус сервера
    */
   async getSystemStatus() {
-    return this.request("/api/v1/system/status", "GET");
+    return this.request("/api/system/status", "GET");
   }
 
   /**
@@ -334,7 +334,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат создания бэкапа
    */
   async createBackup() {
-    return this.request("/api/v1/system/backup", "POST");
+    return this.request("/api/system/backup", "POST");
   }
 
   /**
@@ -343,7 +343,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат восстановления
    */
   async restoreBackup(backupFile) {
-    return this.request("/api/v1/system/restore", "POST", { backupFile });
+    return this.request("/api/system/restore", "POST", { backupFile });
   }
 
   /**
@@ -352,7 +352,7 @@ class APIClient {
    * @returns {Promise<string>} - Логи
    */
   async getSystemLogs(lines = 100) {
-    return this.request(`/api/v1/system/logs?lines=${lines}`, "GET");
+    return this.request(`/api/system/logs?lines=${lines}`, "GET");
   }
 
   /**
