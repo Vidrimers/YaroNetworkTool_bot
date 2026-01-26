@@ -256,35 +256,33 @@ bot.onText(/\/download/, async (msg) => {
   
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🌐 Официальный сайт Amnezia", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
-      [{ text: "📦 GitHub Releases", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+      [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
+      [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
+      [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
+      [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }]
     ]
   };
   
   bot.sendMessage(
     chatId,
-    `📥 <b>Скачать VPN клиент Amnezia</b>\n\n` +
-      `<b>Шаг 1: Скачай приложение</b>\n` +
-      `• Попробуй скачать с официального сайта (кнопка ниже)\n` +
-      `• Если сайт недоступен, используй GitHub Releases\n` +
-      `• Выбери версию для своего устройства:\n` +
-      `  - Windows: .exe файл\n` +
-      `  - macOS: .dmg файл\n` +
-      `  - Android: .apk файл\n` +
-      `  - iOS: через App Store\n` +
-      `  - Linux: .deb или .AppImage\n\n` +
-      `<b>Шаг 2: Установи приложение</b>\n` +
-      `• Запусти скачанный файл\n` +
-      `• Следуй инструкциям установщика\n\n` +
-      `<b>Шаг 3: Добавь ключ подключения</b>\n` +
-      `• Открой приложение Amnezia\n` +
-      `• Нажми "Добавить сервер" или "+" (плюс)\n` +
-      `• Выбери "Импортировать конфигурацию"\n` +
-      `• Вставь ключ, который выдал админ\n` +
-      `• Нажми "Подключиться"\n\n` +
-      `<b>Получить ключ:</b>\n` +
-      `Используй команду /my_link или кнопку "🔗 Моя ссылка" для получения ключа подключения.\n\n` +
-      `<i>Если возникли проблемы, обратись к администратору.</i>`,
+    `📥 <b>Скачать VPN клиент</b>\n\n` +
+      `<b>Android:</b>\n` +
+      `• <b>v2rayNG</b> (рекомендуем) - GitHub Releases\n` +
+      `• <b>V2Box</b> - Google Play Store\n` +
+      `• <b>Hiddify</b> - Google Play Store\n\n` +
+      `<b>iOS:</b>\n` +
+      `• <b>Streisand</b> - App Store\n` +
+      `• <b>FoXray</b> - App Store\n\n` +
+      `<b>Windows/Mac/Linux:</b>\n` +
+      `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
+      `• <b>v2rayNG</b> (Linux) - GitHub Releases\n\n` +
+      `<b>Как подключиться:</b>\n` +
+      `1. Установи приложение\n` +
+      `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
+      `3. В приложении нажми "+" → "Import from Clipboard"\n` +
+      `4. Вставь vless:// ссылку\n` +
+      `5. Подключись\n\n` +
+      `<i>⚠️ Не используй Amnezia на мобильных - не поддерживает наш протокол!</i>`,
     { 
       parse_mode: "HTML",
       reply_markup: keyboard
@@ -1060,35 +1058,33 @@ bot.on("message", async (msg) => {
     if (text === "📥 Скачать VPN") {
       const keyboard = {
         inline_keyboard: [
-          [{ text: "🌐 Официальный сайт Amnezia", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
-          [{ text: "📦 GitHub Releases", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+          [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
+          [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
+          [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
+          [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }]
         ]
       };
       
       bot.sendMessage(
         chatId,
-        `📥 <b>Скачать VPN клиент Amnezia</b>\n\n` +
-          `<b>Шаг 1: Скачай приложение</b>\n` +
-          `• Попробуй скачать с официального сайта (кнопка ниже)\n` +
-          `• Если сайт недоступен, используй GitHub Releases\n` +
-          `• Выбери версию для своего устройства:\n` +
-          `  - Windows: .exe файл\n` +
-          `  - macOS: .dmg файл\n` +
-          `  - Android: .apk файл\n` +
-          `  - iOS: через App Store\n` +
-          `  - Linux: .deb или .AppImage\n\n` +
-          `<b>Шаг 2: Установи приложение</b>\n` +
-          `• Запусти скачанный файл\n` +
-          `• Следуй инструкциям установщика\n\n` +
-          `<b>Шаг 3: Добавь ключ подключения</b>\n` +
-          `• Открой приложение Amnezia\n` +
-          `• Нажми "Добавить сервер" или "+" (плюс)\n` +
-          `• Выбери "Импортировать конфигурацию"\n` +
-          `• Вставь ключ, который выдал админ\n` +
-          `• Нажми "Подключиться"\n\n` +
-          `<b>Получить ключ:</b>\n` +
-          `Используй команду /my_link или кнопку "🔗 Моя ссылка" для получения ключа подключения.\n\n` +
-          `<i>Если возникли проблемы, обратись к администратору.</i>`,
+        `📥 <b>Скачать VPN клиент</b>\n\n` +
+          `<b>Android:</b>\n` +
+          `• <b>v2rayNG</b> (рекомендуем) - GitHub Releases\n` +
+          `• <b>V2Box</b> - Google Play Store\n` +
+          `• <b>Hiddify</b> - Google Play Store\n\n` +
+          `<b>iOS:</b>\n` +
+          `• <b>Streisand</b> - App Store\n` +
+          `• <b>FoXray</b> - App Store\n\n` +
+          `<b>Windows/Mac/Linux:</b>\n` +
+          `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
+          `• <b>v2rayNG</b> (Linux) - GitHub Releases\n\n` +
+          `<b>Как подключиться:</b>\n` +
+          `1. Установи приложение\n` +
+          `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
+          `3. В приложении нажми "+" → "Import from Clipboard"\n` +
+          `4. Вставь vless:// ссылку\n` +
+          `5. Подключись\n\n` +
+          `<i>⚠️ Не используй Amnezia на мобильных - не поддерживает наш протокол!</i>`,
         { 
           parse_mode: "HTML",
           reply_markup: keyboard
