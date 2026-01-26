@@ -1139,17 +1139,53 @@ bot.on("message", async (msg) => {
         const clientsResponse = await apiClient.getClients();
         const clients = clientsResponse.clients || [];
         
-        const activeClients = clients.filter(c => c.status === "active").length;
-        const blockedClients = clients.filter(c => c.status === "blocked").length;
+        const activeClients = clients.filter(c => c.status === "active");
+        const blockedClients = clients.filter(c => c.status === "blocked");
         const totalTraffic = clients.reduce((sum, c) => sum + (c.traffic_used_gb || 0), 0);
+        
+        // Топ 5 клиентов по трафику
+        const topClients = [...clients]
+          .sort((a, b) => (b.traffic_used_gb || 0) - (a.traffic_used_gb || 0))
+          .slice(0, 5);
+        
+        // Клиенты с истекающими подписками (< 7 дней)
+        const now = new Date();
+        const expiringClients = activeClients.filter(c => {
+          const endDate = new Date(c.subscription_end);
+          const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+          return daysLeft > 0 && daysLeft <= 7;
+        });
+        
+        // Клиенты с превышением трафика (> 80%)
+        const highTrafficClients = activeClients.filter(c => {
+          const percent = (c.traffic_used_gb / c.traffic_limit_gb) * 100;
+          return percent >= 80;
+        });
         
         let message = `📊 <b>Статистика сервера</b>\n\n`;
         message += `👥 <b>Клиенты:</b>\n`;
         message += `   Всего: ${clients.length}\n`;
-        message += `   Активных: ${activeClients}\n`;
-        message += `   Заблокированных: ${blockedClients}\n\n`;
+        message += `   Активных: ${activeClients.length}\n`;
+        message += `   Заблокированных: ${blockedClients.length}\n\n`;
         message += `📈 <b>Трафик:</b>\n`;
         message += `   Всего использовано: ${totalTraffic.toFixed(2)} GB\n`;
+        message += `   Средний на клиента: ${(totalTraffic / clients.length || 0).toFixed(2)} GB\n\n`;
+        
+        if (topClients.length > 0) {
+          message += `🏆 <b>Топ клиентов по трафику:</b>\n`;
+          topClients.forEach((c, i) => {
+            message += `   ${i + 1}. ${c.name}: ${(c.traffic_used_gb || 0).toFixed(2)} GB\n`;
+          });
+          message += `\n`;
+        }
+        
+        if (expiringClients.length > 0) {
+          message += `⏰ <b>Истекающие подписки (< 7 дней):</b> ${expiringClients.length}\n`;
+        }
+        
+        if (highTrafficClients.length > 0) {
+          message += `⚠️ <b>Превышение трафика (> 80%):</b> ${highTrafficClients.length}\n`;
+        }
         
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "📝 Запросы") {
@@ -1195,6 +1231,17 @@ bot.on("message", async (msg) => {
         const activeClients = clients.filter(c => c.status === "active").length;
         const blockedClients = clients.filter(c => c.status === "blocked").length;
 
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "💾 Создать бэкап", callback_data: "admin_backup" }
+            ],
+            [
+              { text: "📂 Список бэкапов", callback_data: "admin_list_backups" }
+            ]
+          ]
+        };
+
         let message = `⚙️ <b>Статус сервера</b>\n\n`;
         message += `✅ Сервер: Онлайн\n`;
         message += `🌐 VPN: <code>${SERVER_IP}:443</code>\n`;
@@ -1205,7 +1252,10 @@ bot.on("message", async (msg) => {
         message += `   Активных: ${activeClients}\n`;
         message += `   Заблокированных: ${blockedClients}\n`;
 
-        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, message, { 
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
       } else if (text === "🔧 Xray") {
         const keyboard = {
           inline_keyboard: [
@@ -2202,6 +2252,184 @@ bot.on("callback_query", async (query) => {
 
         bot.answerCallbackQuery(query.id, {
           text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Создание бэкапа (для админа)
+    if (data === "admin_backup") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `💾 <b>Создание резервной копии</b>\n\n` +
+            `⏳ Создание бэкапа...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Запускаем скрипт бэкапа
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const scriptPath = join(__dirname, 'backup.sh');
+        
+        const { stdout, stderr } = await execAsync(`bash "${scriptPath}"`);
+        
+        // Парсим вывод
+        const archiveMatch = stdout.match(/Архив:\s*(.+\.tar\.gz)/);
+        const sizeMatch = stdout.match(/Размер:\s*(\S+)/);
+        
+        const archiveName = archiveMatch ? archiveMatch[1].split('/').pop() : 'backup.tar.gz';
+        const archiveSize = sizeMatch ? sizeMatch[1] : 'неизвестно';
+        
+        let resultMessage = `💾 <b>Резервная копия создана</b>\n\n`;
+        resultMessage += `✅ Бэкап успешно создан\n\n`;
+        resultMessage += `📦 <b>Архив:</b> <code>${archiveName}</code>\n`;
+        resultMessage += `📊 <b>Размер:</b> ${archiveSize}\n\n`;
+        resultMessage += `<i>💡 Бэкапы хранятся 30 дней\nАвтоматический бэкап: каждые 3 дня в 03:00</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Бэкап создан",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка создания бэкапа:", error);
+        
+        bot.editMessageText(
+          `💾 <b>Создание резервной копии</b>\n\n` +
+            `❌ Ошибка:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка создания бэкапа",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Список бэкапов (для админа)
+    if (data === "admin_list_backups") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `📂 <b>Список резервных копий</b>\n\n` +
+            `⏳ Загрузка...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Получаем список бэкапов
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const { mkdir } = await import('fs/promises');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const backupDir = join(dirname(__dirname), 'backups');
+        
+        // Создаем директорию если не существует
+        try {
+          await mkdir(backupDir, { recursive: true });
+        } catch (err) {
+          // Игнорируем если уже существует
+        }
+        
+        const { stdout } = await execAsync(`ls -lht "${backupDir}"/backup_*.tar.gz 2>/dev/null | head -10 || echo ""`);
+        
+        if (!stdout.trim()) {
+          bot.editMessageText(
+            `📂 <b>Список резервных копий</b>\n\n` +
+              `📭 Резервные копии не найдены\n\n` +
+              `<i>Создай первый бэкап кнопкой "💾 Создать бэкап"</i>`,
+            {
+              chat_id: chatId,
+              message_id: query.message.message_id,
+              parse_mode: "HTML"
+            }
+          );
+          
+          bot.answerCallbackQuery(query.id);
+          return;
+        }
+        
+        // Парсим список файлов
+        const lines = stdout.trim().split('\n');
+        let resultMessage = `📂 <b>Список резервных копий</b>\n\n`;
+        resultMessage += `Последние 10 бэкапов:\n\n`;
+        
+        lines.forEach((line, i) => {
+          const parts = line.split(/\s+/);
+          if (parts.length >= 9) {
+            const size = parts[4];
+            const date = `${parts[5]} ${parts[6]} ${parts[7]}`;
+            const filename = parts[8].split('/').pop();
+            
+            resultMessage += `${i + 1}. <code>${filename}</code>\n`;
+            resultMessage += `   📊 ${size} | 📅 ${date}\n\n`;
+          }
+        });
+        
+        resultMessage += `<i>💡 Для восстановления используй скрипт restore.sh на сервере</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Список загружен",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка получения списка бэкапов:", error);
+        
+        bot.editMessageText(
+          `📂 <b>Список резервных копий</b>\n\n` +
+            `❌ Ошибка:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка",
           show_alert: true,
         });
       }
