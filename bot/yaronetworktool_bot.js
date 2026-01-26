@@ -99,7 +99,7 @@ bot.onText(/\/start/, async (msg) => {
         chatId,
         `👋 Добро пожаловать, <b>Администратор</b>!\n\n` +
           `🎛️ <b>Панель управления VPN сервером</b>\n\n` +
-          `Используйте кнопки ниже для управления:\n\n` +
+          `Используй кнопки ниже для управления:\n\n` +
           `👥 <b>Клиенты</b> - Управление VPN клиентами\n` +
           `📊 <b>Статистика</b> - Статистика сервера и клиентов\n` +
           `📝 <b>Запросы</b> - Запросы на продление подписки\n` +
@@ -123,8 +123,8 @@ bot.onText(/\/start/, async (msg) => {
         bot.sendMessage(
           chatId,
           `👋 Добро пожаловать, <b>${client.name}</b>!\n\n` +
-            `📊 <b>Ваш личный кабинет VPN</b>\n\n` +
-            `Используйте кнопки ниже:\n\n` +
+            `📊 <b>Твой личный кабинет VPN</b>\n\n` +
+            `Используй кнопки ниже:\n\n` +
             `📊 <b>Мой VPN</b> - Статистика использования\n` +
             `🔗 <b>Моя ссылка</b> - Ссылка подключения и QR код\n` +
             `🔑 <b>Запросить ключ</b> - Продлить подписку\n` +
@@ -170,9 +170,9 @@ bot.onText(/\/start/, async (msg) => {
         bot.sendMessage(
           chatId,
           `👋 Привет, ${username}!\n\n` +
-            `❌ <b>Вы не зарегистрированы в системе</b>\n\n` +
-            `Для получения доступа к VPN нажмите кнопку ниже.\n\n` +
-            `Ваш Telegram ID: <code>${userId}</code>`,
+            `❌ <b>Ты не зарегистрирован в системе</b>\n\n` +
+            `Для получения доступа к VPN нажми кнопку ниже.\n\n` +
+            `Твой Telegram ID: <code>${userId}</code>`,
           { 
             parse_mode: "HTML",
             reply_markup: keyboard
@@ -376,7 +376,7 @@ bot.onText(/\/add_client/, async (msg) => {
   bot.sendMessage(
     chatId,
     "➕ <b>Добавление нового клиента</b>\n\n" +
-      "Введите имя клиента:",
+      "Введи имя клиента:",
     { parse_mode: "HTML" }
   );
 });
@@ -401,7 +401,7 @@ bot.onText(/\/remove_client/, async (msg) => {
     }
 
     let message = "🗑️ <b>Удаление клиента</b>\n\n";
-    message += "Выберите клиента для удаления:\n\n";
+    message += "Выбери клиента для удаления:\n\n";
 
     const keyboard = {
       inline_keyboard: clients.map(client => [{
@@ -474,7 +474,7 @@ bot.onText(/\/my_vpn/, async (msg) => {
     const client = await getClientByTelegramId(userId);
 
     if (!client) {
-      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
       return;
     }
 
@@ -520,14 +520,14 @@ bot.onText(/\/my_link/, async (msg) => {
     const client = await getClientByTelegramId(userId);
 
     if (!client) {
-      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
       return;
     }
 
     let message = `🔗 <b>Ссылка подключения</b>\n\n`;
-    message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
-    message += `Для получения ссылки подключения обратитесь к администратору.\n`;
-    message += `Администратор сгенерирует для вас vless:// ссылку и QR код.`;
+    message += `Твой UUID: <code>${client.uuid}</code>\n\n`;
+    message += `Для получения ссылки подключения обратись к администратору.\n`;
+    message += `Администратор сгенерирует для тебя vless:// ссылку и QR код.`;
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
   } catch (error) {
@@ -550,7 +550,7 @@ bot.onText(/\/my_requests/, async (msg) => {
     const client = await getClientByTelegramId(userId);
 
     if (!client) {
-      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
       return;
     }
 
@@ -558,7 +558,7 @@ bot.onText(/\/my_requests/, async (msg) => {
     const requests = response.requests || [];
 
     if (requests.length === 0) {
-      bot.sendMessage(chatId, "📭 У вас нет запросов на продление");
+      bot.sendMessage(chatId, "📭 У тебя нет запросов на продление");
       return;
     }
 
@@ -613,14 +613,14 @@ bot.on("message", async (msg) => {
         
         bot.sendMessage(
           chatId,
-          "Введите количество дней подписки (по умолчанию 30):"
+          "Введи количество дней подписки (по умолчанию 30):"
         );
         return;
       } else if (userState.step === "days") {
         const days = parseInt(text);
         
         if (isNaN(days) || days <= 0) {
-          bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+          bot.sendMessage(chatId, "❌ Неверный формат. Введи положительное число:");
           return;
         }
         
@@ -676,13 +676,13 @@ bot.on("message", async (msg) => {
 
           bot.sendMessage(
             userState.targetUserId,
-            `🎉 <b>Ваша заявка одобрена!</b>\n\n` +
-              `Вам создан доступ к VPN серверу.\n\n` +
+            `🎉 <b>Твоя заявка одобрена!</b>\n\n` +
+              `Тебе создан доступ к VPN серверу.\n\n` +
               `👤 <b>Имя:</b> ${client.name}\n` +
               `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n` +
               `📅 <b>Подписка:</b> ${days} дней\n` +
               `📊 <b>Лимит трафика:</b> ${client.traffic_limit_gb} GB\n\n` +
-              `Нажмите кнопку ниже для доступа к личному кабинету.`,
+              `Нажми кнопку ниже для доступа к личному кабинету.`,
             { 
               parse_mode: "HTML",
               reply_markup: keyboard
@@ -712,14 +712,14 @@ bot.on("message", async (msg) => {
         
         bot.sendMessage(
           chatId,
-          "Введите Telegram ID клиента (или 0 если не известен):"
+          "Введи Telegram ID клиента (или 0 если не известен):"
         );
         return;
       } else if (userState.step === "telegram_id") {
         const telegramId = parseInt(text);
         
         if (isNaN(telegramId)) {
-          bot.sendMessage(chatId, "❌ Неверный формат. Введите число:");
+          bot.sendMessage(chatId, "❌ Неверный формат. Введи число:");
           return;
         }
         
@@ -729,14 +729,14 @@ bot.on("message", async (msg) => {
         
         bot.sendMessage(
           chatId,
-          "Введите количество дней подписки (по умолчанию 30):"
+          "Введи количество дней подписки (по умолчанию 30):"
         );
         return;
       } else if (userState.step === "subscription_days") {
         const days = parseInt(text);
         
         if (isNaN(days) || days <= 0) {
-          bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+          bot.sendMessage(chatId, "❌ Неверный формат. Введи положительное число:");
           return;
         }
         
@@ -789,13 +789,13 @@ bot.on("message", async (msg) => {
             bot.sendMessage(
               client.telegram_id,
               `🎉 <b>Добро пожаловать в VPN сервис!</b>\n\n` +
-                `Вам создан доступ к VPN серверу.\n\n` +
+                `Тебе создан доступ к VPN серверу.\n\n` +
                 `👤 <b>Имя:</b> ${client.name}\n` +
                 `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n` +
                 `📅 <b>Подписка:</b> ${days} дней\n` +
                 `📊 <b>Лимит трафика:</b> ${client.traffic_limit_gb} GB` +
-                (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>\n\nСкопируйте ссылку и вставьте в VPN клиент (v2rayN, v2rayNG, Streisand)` : '') +
-                `\n\nИспользуйте /start для доступа к личному кабинету.`,
+                (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>\n\nСкопируй ссылку и вставь в VPN клиент (v2rayN, v2rayNG, Streisand)` : '') +
+                `\n\nИспользуй /start для доступа к личному кабинету.`,
               { parse_mode: "HTML" }
             ).catch(err => {
               console.error("Не удалось отправить уведомление клиенту:", err);
@@ -819,7 +819,7 @@ bot.on("message", async (msg) => {
       const days = parseInt(text);
       
       if (isNaN(days) || days <= 0) {
-        bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+        bot.sendMessage(chatId, "❌ Неверный формат. Введи положительное число:");
         return;
       }
       
@@ -844,9 +844,9 @@ bot.on("message", async (msg) => {
         if (request.telegram_id) {
           bot.sendMessage(
             request.telegram_id,
-            `✅ <b>Ваш запрос одобрен!</b>\n\n` +
+            `✅ <b>Твой запрос одобрен!</b>\n\n` +
               `Подписка продлена на ${days} дней.\n` +
-              `Используйте /my_vpn для просмотра обновленной информации.`,
+              `Используй /my_vpn для просмотра обновленной информации.`,
             { parse_mode: "HTML" }
           );
         }
@@ -896,13 +896,13 @@ bot.on("message", async (msg) => {
           clientMessage += `Причина: ${reason}\n\n`;
           
           if (warningsCount === 1) {
-            clientMessage += `Ваш доступ заблокирован на 24 часа.\n\n`;
+            clientMessage += `Твой доступ заблокирован на 24 часа.\n\n`;
             clientMessage += `При повторном нарушении блокировка составит 7 дней.`;
           } else if (warningsCount === 2) {
-            clientMessage += `Ваш доступ заблокирован на 7 дней.\n\n`;
+            clientMessage += `Твой доступ заблокирован на 7 дней.\n\n`;
             clientMessage += `⚠️ ВНИМАНИЕ: При следующем нарушении вы будете заблокированы навсегда!`;
           } else {
-            clientMessage += `Ваш доступ заблокирован навсегда.\n\n`;
+            clientMessage += `Твой доступ заблокирован навсегда.\n\n`;
             clientMessage += `Обратитесь к администратору для уточнения деталей.`;
           }
 
@@ -1089,7 +1089,7 @@ bot.on("message", async (msg) => {
       if (!client) {
         bot.sendMessage(
           chatId,
-          "❌ Вы не зарегистрированы в системе.\n" +
+          "❌ Ты не зарегистрирован в системе.\n" +
             "Обратитесь к администратору."
         );
         return;
@@ -1139,21 +1139,21 @@ bot.on("message", async (msg) => {
         let message = `🔗 <b>Ссылка подключения</b>\n\n`;
         
         if (vlessLink) {
-          message += `<b>Ваша ссылка для подключения:</b>\n`;
+          message += `<b>Твойа ссылка для подключения:</b>\n`;
           message += `<code>${vlessLink}</code>\n\n`;
           message += `📱 <b>Как подключиться:</b>\n`;
-          message += `1. Скопируйте ссылку выше\n`;
+          message += `1. Скопируй ссылку выше\n`;
           message += `2. Откройте VPN клиент:\n`;
           message += `   • Windows/Linux: v2rayN\n`;
           message += `   • Android: v2rayNG\n`;
           message += `   • iOS/macOS: Streisand\n`;
           message += `3. Вставьте ссылку в клиент\n`;
           message += `4. Подключитесь к VPN\n\n`;
-          message += `💡 <b>Совет:</b> Нажмите на ссылку чтобы скопировать`;
+          message += `💡 <b>Совет:</b> Нажми на ссылку чтобы скопировать`;
         } else {
-          message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
+          message += `Твой UUID: <code>${client.uuid}</code>\n\n`;
           message += `⚠️ Автоматическая генерация ссылок временно недоступна.\n`;
-          message += `Для получения ссылки подключения обратитесь к администратору.`;
+          message += `Для получения ссылки подключения обратись к администратору.`;
         }
 
         bot.sendMessage(chatId, message, { parse_mode: "HTML" });
@@ -1177,7 +1177,7 @@ bot.on("message", async (msg) => {
         bot.sendMessage(
           chatId,
           `🔑 <b>Запрос на продление подписки</b>\n\n` +
-            `Выберите период продления:`,
+            `Выбери период продления:`,
           {
             parse_mode: "HTML",
             reply_markup: keyboard,
@@ -1188,7 +1188,7 @@ bot.on("message", async (msg) => {
         const requests = response.requests || [];
 
         if (requests.length === 0) {
-          bot.sendMessage(chatId, "📭 У вас нет запросов на продление");
+          bot.sendMessage(chatId, "📭 У тебя нет запросов на продление");
           return;
         }
 
@@ -1243,8 +1243,8 @@ bot.on("callback_query", async (query) => {
 
       bot.editMessageText(
         `👋 Добро пожаловать, <b>${client.name}</b>!\n\n` +
-          `📊 <b>Ваш личный кабинет VPN</b>\n\n` +
-          `Используйте команду /start для доступа к меню.`,
+          `📊 <b>Твой личный кабинет VPN</b>\n\n` +
+          `Используй команду /start для доступа к меню.`,
         {
           chat_id: chatId,
           message_id: query.message.message_id,
@@ -1255,7 +1255,7 @@ bot.on("callback_query", async (query) => {
       // Отправляем новое сообщение с клавиатурой
       bot.sendMessage(
         chatId,
-        `Используйте кнопки ниже:\n\n` +
+        `Используй кнопки ниже:\n\n` +
           `📊 <b>Мой VPN</b> - Статистика использования\n` +
           `🔗 <b>Моя ссылка</b> - Ссылка подключения и QR код\n` +
           `🔑 <b>Запросить ключ</b> - Продлить подписку\n` +
@@ -1278,7 +1278,7 @@ bot.on("callback_query", async (query) => {
       bot.editMessageText(
         `✅ <b>Заявка отправлена!</b>\n\n` +
           `Малютка, админ получил твою заявку и свяжется с тобой в ближайшее время ;-)\n\n` +
-          `Ваш Telegram ID: <code>${userId}</code>`,
+          `Твой Telegram ID: <code>${userId}</code>`,
         {
           chat_id: chatId,
           message_id: query.message.message_id,
@@ -1301,7 +1301,7 @@ bot.on("callback_query", async (query) => {
             `👤 Имя: ${query.from.first_name || "Не указано"}\n` +
             `📱 Username: ${username ? "@" + username : "Не указан"}\n` +
             `🆔 Telegram ID: <code>${userId}</code>\n\n` +
-            `Выберите действие:`,
+            `Выбери действие:`,
           {
             parse_mode: "HTML",
             reply_markup: keyboard
@@ -1334,7 +1334,7 @@ bot.on("callback_query", async (query) => {
       bot.editMessageText(
         `➕ <b>Создание доступа</b>\n\n` +
           `Telegram ID: <code>${targetUserId}</code>\n\n` +
-          `Введите имя клиента:`,
+          `Введи имя клиента:`,
         {
           chat_id: chatId,
           message_id: query.message.message_id,
@@ -1372,8 +1372,8 @@ bot.on("callback_query", async (query) => {
       bot.sendMessage(
         targetUserId,
         `❌ <b>Заявка отклонена</b>\n\n` +
-          `К сожалению, администратор отклонил вашу заявку на доступ к VPN.\n` +
-          `Для уточнения причины обратитесь к администратору.`,
+          `К сожалению, администратор отклонил твою заявку на доступ к VPN.\n` +
+          `Для уточнения причины обратись к администратору.`,
         { parse_mode: "HTML" }
       ).catch(err => {
         console.error("Не удалось отправить уведомление пользователю:", err);
@@ -1398,7 +1398,7 @@ bot.on("callback_query", async (query) => {
       bot.sendMessage(
         chatId,
         "➕ <b>Добавление нового клиента</b>\n\n" +
-          "Введите имя клиента:",
+          "Введи имя клиента:",
         { parse_mode: "HTML" }
       );
       
@@ -1427,7 +1427,7 @@ bot.on("callback_query", async (query) => {
       }
 
       let message = "🗑️ <b>Удаление клиента</b>\n\n";
-      message += "Выберите клиента для удаления:\n\n";
+      message += "Выбери клиента для удаления:\n\n";
 
       // Сохраняем список клиентов в состояние
       userStates.set(userId, { 
@@ -1474,7 +1474,7 @@ bot.on("callback_query", async (query) => {
       }
 
       let message = "ℹ️ <b>Информация о клиенте</b>\n\n";
-      message += "Выберите клиента:\n\n";
+      message += "Выбери клиента:\n\n";
 
       // Сохраняем список клиентов в состояние
       userStates.set(userId, { 
@@ -1585,7 +1585,7 @@ bot.on("callback_query", async (query) => {
 
       if (!client) {
         bot.answerCallbackQuery(query.id, {
-          text: "❌ Вы не зарегистрированы",
+          text: "❌ Ты не зарегистрирован",
           show_alert: true,
         });
         return;
@@ -1602,8 +1602,8 @@ bot.on("callback_query", async (query) => {
         bot.editMessageText(
           `✅ <b>Запрос отправлен!</b>\n\n` +
             `Период: ${months} ${months === 1 ? "месяц" : "месяцев"}\n\n` +
-            `Администратор получил ваш запрос и рассмотрит его в ближайшее время.\n` +
-            `Вы получите уведомление о решении.`,
+            `Администратор получил твой запрос и рассмотрит его в ближайшее время.\n` +
+            `Ты получите уведомление о решении.`,
           {
             chat_id: chatId,
             message_id: query.message.message_id,
@@ -1631,7 +1631,7 @@ bot.on("callback_query", async (query) => {
               `👤 Клиент: ${client.name}\n` +
               `🆔 UUID: <code>${client.uuid}</code>\n` +
               `📅 Запрошено: ${months} ${months === 1 ? "месяц" : "месяцев"} (${response.request.requested_days} дней)\n\n` +
-              `Выберите действие:`,
+              `Выбери действие:`,
             {
               parse_mode: "HTML",
               reply_markup: keyboard,
@@ -1645,7 +1645,7 @@ bot.on("callback_query", async (query) => {
         
         let errorMessage = error.message;
         if (errorMessage.includes("already has a pending request")) {
-          errorMessage = "У вас уже есть активный запрос на продление. Дождитесь решения администратора.";
+          errorMessage = "У тебя уже есть активный запрос на продление. Дождитесь решения администратора.";
         }
         
         bot.editMessageText(
@@ -1696,9 +1696,9 @@ bot.on("callback_query", async (query) => {
         if (request.telegram_id) {
           bot.sendMessage(
             request.telegram_id,
-            `✅ <b>Ваш запрос одобрен!</b>\n\n` +
+            `✅ <b>Твой запрос одобрен!</b>\n\n` +
               `Подписка продлена на ${request.approved_days} дней.\n` +
-              `Используйте /my_vpn для просмотра обновленной информации.`,
+              `Используй /my_vpn для просмотра обновленной информации.`,
             { parse_mode: "HTML" }
           );
         }
@@ -1744,9 +1744,9 @@ bot.on("callback_query", async (query) => {
         if (request.telegram_id) {
           bot.sendMessage(
             request.telegram_id,
-            `❌ <b>Ваш запрос отклонен</b>\n\n` +
-              `К сожалению, администратор отклонил ваш запрос на продление.\n` +
-              `Для уточнения причины обратитесь к администратору.`,
+            `❌ <b>Твой запрос отклонен</b>\n\n` +
+              `К сожалению, администратор отклонил твой запрос на продление.\n` +
+              `Для уточнения причины обратись к администратору.`,
             { parse_mode: "HTML" }
           );
         }
@@ -1800,8 +1800,8 @@ bot.on("callback_query", async (query) => {
 
         bot.sendMessage(
           chatId,
-          `📝 <b>Выберите период продления:</b>\n\n` +
-            `Или введите количество дней вручную.`,
+          `📝 <b>Выбери период продления:</b>\n\n` +
+            `Или введи количество дней вручную.`,
           {
             parse_mode: "HTML",
             reply_markup: keyboard
@@ -1833,7 +1833,7 @@ bot.on("callback_query", async (query) => {
 
         bot.sendMessage(
           chatId,
-          `✏️ Введите количество дней для продления:\n\n` +
+          `✏️ Введи количество дней для продления:\n\n` +
             `Например: 45, 120, 200`,
           {
             reply_markup: {
@@ -1871,9 +1871,9 @@ bot.on("callback_query", async (query) => {
         if (request.telegram_id) {
           bot.sendMessage(
             request.telegram_id,
-            `✅ <b>Ваш запрос одобрен!</b>\n\n` +
+            `✅ <b>Твой запрос одобрен!</b>\n\n` +
               `Подписка продлена на ${days} дней.\n` +
-              `Используйте /my_vpn для просмотра обновленной информации.`,
+              `Используй /my_vpn для просмотра обновленной информации.`,
             { parse_mode: "HTML" }
           );
         }
@@ -2074,8 +2074,8 @@ bot.on("callback_query", async (query) => {
         if (client.telegram_id) {
           bot.sendMessage(
             client.telegram_id,
-            `✅ <b>Ваш доступ разблокирован</b>\n\n` +
-              `Вы снова можете пользоваться VPN.\n` +
+            `✅ <b>Твой доступ разблокирован</b>\n\n` +
+              `Ты снова можете пользоваться VPN.\n` +
               `Пожалуйста, соблюдайте правила использования.`,
             { parse_mode: "HTML" }
           );
@@ -2131,7 +2131,7 @@ bot.on("callback_query", async (query) => {
       };
 
       bot.editMessageText(
-        "⚠️ <b>Выберите причину предупреждения:</b>",
+        "⚠️ <b>Выбери причину предупреждения:</b>",
         {
           chat_id: chatId,
           message_id: query.message.message_id,
@@ -2216,13 +2216,13 @@ bot.on("callback_query", async (query) => {
           clientMessage += `Причина: ${reason}\n\n`;
           
           if (warningsCount === 1) {
-            clientMessage += `Ваш доступ заблокирован на 24 часа.\n\n`;
+            clientMessage += `Твой доступ заблокирован на 24 часа.\n\n`;
             clientMessage += `При повторном нарушении блокировка составит 7 дней.`;
           } else if (warningsCount === 2) {
-            clientMessage += `Ваш доступ заблокирован на 7 дней.\n\n`;
+            clientMessage += `Твой доступ заблокирован на 7 дней.\n\n`;
             clientMessage += `⚠️ ВНИМАНИЕ: При следующем нарушении вы будете заблокированы навсегда!`;
           } else {
-            clientMessage += `Ваш доступ заблокирован навсегда.\n\n`;
+            clientMessage += `Твой доступ заблокирован навсегда.\n\n`;
             clientMessage += `Обратитесь к администратору для уточнения деталей.`;
           }
 
@@ -2268,7 +2268,7 @@ bot.on("callback_query", async (query) => {
 
       bot.sendMessage(
         chatId,
-        "✏️ Введите причину предупреждения:",
+        "✏️ Введи причину предупреждения:",
         {
           reply_markup: {
             force_reply: true,
@@ -2367,7 +2367,7 @@ bot.on("callback_query", async (query) => {
       message += `🆔 <b>UUID:</b> <code>${req.client_uuid}</code>\n`;
       message += `📅 <b>Запрошено:</b> ${req.requested_months} мес. (${req.requested_days} дней)\n`;
       message += `📆 <b>Дата запроса:</b> ${new Date(req.created_at).toLocaleDateString()}\n\n`;
-      message += `Выберите действие:`;
+      message += `Выбери действие:`;
 
       const keyboard = {
         inline_keyboard: [
