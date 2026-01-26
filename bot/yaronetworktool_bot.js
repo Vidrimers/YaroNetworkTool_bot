@@ -1102,6 +1102,9 @@ bot.on("message", async (msg) => {
             ],
             [
               { text: "🔔 Проверить подписки", callback_data: "admin_check_subscriptions" }
+            ],
+            [
+              { text: "📊 Проверить трафик", callback_data: "admin_check_traffic" }
             ]
           ]
         };
@@ -1725,6 +1728,8 @@ bot.on("callback_query", async (query) => {
         // Парсим вывод скрипта
         let expiredCount = 0;
         let expiringCount = 0;
+        const expiredList = [];
+        const expiringList = [];
         
         // Ищем строки с результатами
         const expiredMatch = stdout.match(/Истекших подписок:\s*(\d+)/);
@@ -1737,6 +1742,38 @@ bot.on("callback_query", async (query) => {
           expiringCount = parseInt(expiringMatch[1]);
         }
         
+        // Парсим список истекших подписок
+        const expiredSection = stdout.match(/Истекшие подписки:\n([\s\S]*?)(?:Истекающие подписки:|Проверка завершена)/);
+        if (expiredSection && expiredSection[1]) {
+          const lines = expiredSection[1].trim().split('\n');
+          lines.forEach(line => {
+            const match = line.match(/\d+\.\s+(.+?)\s+-\s+истекла\s+(.+)/);
+            if (match) {
+              expiredList.push({
+                name: match[1],
+                date: match[2]
+              });
+            }
+          });
+        }
+        
+        // Парсим список истекающих подписок
+        const expiringSection = stdout.match(/Истекающие подписки:\n([\s\S]*?)Проверка завершена/);
+        if (expiringSection && expiringSection[1]) {
+          const lines = expiringSection[1].trim().split('\n');
+          lines.forEach(line => {
+            const match = line.match(/\d+\.\s+(.+?)\s+-\s+через\s+(\d+)\s+(.+?)\s+\((.+?)\)/);
+            if (match) {
+              expiringList.push({
+                name: match[1],
+                days: match[2],
+                daysWord: match[3],
+                date: match[4]
+              });
+            }
+          });
+        }
+        
         let resultMessage = `🔔 <b>Проверка подписок</b>\n\n`;
         resultMessage += `✅ Проверка завершена\n\n`;
         resultMessage += `📊 <b>Результаты:</b>\n`;
@@ -1744,18 +1781,26 @@ bot.on("callback_query", async (query) => {
         resultMessage += `• Истекающих подписок (≤3 дней): ${expiringCount}\n\n`;
         
         if (expiredCount > 0) {
-          resultMessage += `🔒 Истекшие подписки автоматически заблокированы\n`;
+          resultMessage += `🔒 <b>Истекшие подписки:</b>\n`;
+          expiredList.forEach((client, i) => {
+            resultMessage += `${i + 1}. <b>${client.name}</b> - ${client.date}\n`;
+          });
+          resultMessage += `\n✅ Автоматически заблокированы\n\n`;
         }
         
         if (expiringCount > 0) {
-          resultMessage += `📨 Уведомления отправлены клиентам\n`;
+          resultMessage += `⏰ <b>Истекающие подписки:</b>\n`;
+          expiringList.forEach((client, i) => {
+            resultMessage += `${i + 1}. <b>${client.name}</b> - через ${client.days} ${client.daysWord}\n`;
+          });
+          resultMessage += `\n📨 Уведомления отправлены клиентам\n\n`;
         }
         
         if (expiredCount === 0 && expiringCount === 0) {
-          resultMessage += `✅ Все подписки в порядке\n`;
+          resultMessage += `✅ Все подписки в порядке\n\n`;
         }
         
-        resultMessage += `\n<i>Автоматическая проверка: каждый день в 10:00</i>`;
+        resultMessage += `<i>Автоматическая проверка: каждый день в 10:00</i>`;
         
         bot.editMessageText(resultMessage, {
           chat_id: chatId,
@@ -1772,6 +1817,119 @@ bot.on("callback_query", async (query) => {
         
         bot.editMessageText(
           `🔔 <b>Проверка подписок</b>\n\n` +
+            `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Проверка трафика вручную
+    if (data === "admin_check_traffic") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `📊 <b>Проверка трафика</b>\n\n` +
+            `⏳ Запуск проверки...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Запускаем скрипт проверки трафика
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const scriptPath = join(__dirname, 'traffic-checker.js');
+        
+        const { stdout, stderr } = await execAsync(`node "${scriptPath}"`);
+        
+        // Парсим вывод скрипта
+        let totalClients = 0;
+        let warningCount = 0;
+        const clientsList = [];
+        
+        // Ищем строки с результатами
+        const totalMatch = stdout.match(/Всего клиентов:\s*(\d+)/);
+        const warningMatch = stdout.match(/Превысили.*?:\s*(\d+)/);
+        
+        if (totalMatch) {
+          totalClients = parseInt(totalMatch[1]);
+        }
+        if (warningMatch) {
+          warningCount = parseInt(warningMatch[1]);
+        }
+        
+        // Парсим список клиентов с превышением
+        const clientsSection = stdout.match(/Клиенты с превышением:\n([\s\S]*?)Проверка завершена/);
+        if (clientsSection && clientsSection[1]) {
+          const lines = clientsSection[1].trim().split('\n');
+          lines.forEach(line => {
+            const match = line.match(/\d+\.\s+(.+?)\s+-\s+([\d.]+)%\s+\((.+?)\s+из\s+(.+?)\)/);
+            if (match) {
+              clientsList.push({
+                name: match[1],
+                percent: match[2],
+                used: match[3],
+                limit: match[4]
+              });
+            }
+          });
+        }
+        
+        let resultMessage = `📊 <b>Проверка трафика</b>\n\n`;
+        resultMessage += `✅ Проверка завершена\n\n`;
+        resultMessage += `📊 <b>Результаты:</b>\n`;
+        resultMessage += `• Всего активных клиентов: ${totalClients}\n`;
+        resultMessage += `• Превысили 80% лимита: ${warningCount}\n\n`;
+        
+        if (warningCount > 0) {
+          resultMessage += `⚠️ <b>Клиенты с превышением:</b>\n`;
+          clientsList.forEach((client, i) => {
+            resultMessage += `${i + 1}. <b>${client.name}</b> - ${client.percent}%\n`;
+            resultMessage += `   ${client.used} из ${client.limit}\n`;
+          });
+          resultMessage += `\n📨 Уведомления отправлены клиентам и админу\n`;
+        } else {
+          resultMessage += `✅ Все клиенты в пределах нормы\n`;
+        }
+        
+        resultMessage += `\n<i>Автоматическая проверка: 3 раза в день (10:00, 15:00, 20:00)</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Проверка завершена",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка проверки трафика:", error);
+        
+        bot.editMessageText(
+          `📊 <b>Проверка трафика</b>\n\n` +
             `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
           {
             chat_id: chatId,

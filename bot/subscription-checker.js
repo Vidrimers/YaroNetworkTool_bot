@@ -198,6 +198,21 @@ async function checkSubscriptions() {
     console.log(`\nИтого:`);
     console.log(`- Истекших подписок: ${expired.length}`);
     console.log(`- Истекающих подписок (≤3 дней): ${expiringSoon.length}`);
+    
+    if (expired.length > 0) {
+      console.log(`\nИстекшие подписки:`);
+      expired.forEach((client, i) => {
+        console.log(`${i + 1}. ${client.name} - истекла ${formatDate(client.subscription_end)}`);
+      });
+    }
+    
+    if (expiringSoon.length > 0) {
+      console.log(`\nИстекающие подписки:`);
+      expiringSoon.forEach(({ client, daysLeft }, i) => {
+        console.log(`${i + 1}. ${client.name} - через ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft <= 4 ? 'дня' : 'дней'} (${formatDate(client.subscription_end)})`);
+      });
+    }
+    
     console.log(`Проверка завершена\n`);
 
   } catch (error) {
