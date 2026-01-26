@@ -7,6 +7,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import sqlite3 from "sqlite3";
+import APIClient from "./utils/api-client.js";
 
 dotenv.config();
 
@@ -21,8 +22,9 @@ if (!TELEGRAM_BOT_TOKEN) {
   process.exit(1);
 }
 
-// Инициализация бота
+// Инициализация бота и API клиента
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const apiClient = new APIClient();
 
 // Класс для работы с базой данных
 class DB {
@@ -216,6 +218,313 @@ bot.onText(/\/help/, async (msg) => {
 });
 
 // ============================================================================
+// КОМАНДЫ АДМИНИСТРАТОРА
+// ============================================================================
+
+// Команда /list_clients - Список всех клиентов
+bot.onText(/\/list_clients/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  try {
+    const response = await apiClient.getClients();
+    const clients = response.clients || [];
+
+    if (clients.length === 0) {
+      bot.sendMessage(chatId, "📭 Клиенты не найдены");
+      return;
+    }
+
+    let message = `👥 <b>Список клиентов (${clients.length}):</b>\n\n`;
+    
+    clients.forEach((client, i) => {
+      const status = client.status === "active" ? "✅" : "❌";
+      const endDate = new Date(client.subscription_end);
+      const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+      
+      message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
+      message += `   UUID: <code>${client.uuid}</code>\n`;
+      message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
+      message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+      message += `   Трафик: ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n\n`;
+    });
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /list_clients:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /client_info <uuid> - Информация о клиенте
+bot.onText(/\/client_info (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const uuid = match[1].trim();
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  try {
+    const response = await apiClient.getClient(uuid);
+    const client = response.client;
+
+    const endDate = new Date(client.subscription_end);
+    const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+    const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+
+    let message = `👤 <b>Информация о клиенте</b>\n\n`;
+    message += `<b>Имя:</b> ${client.name}\n`;
+    message += `<b>UUID:</b> <code>${client.uuid}</code>\n`;
+    message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n`;
+    message += `<b>Email:</b> ${client.email || "не указан"}\n\n`;
+    message += `<b>Статус:</b> ${status}\n`;
+    message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+    message += `<b>Начало:</b> ${new Date(client.subscription_start).toLocaleDateString()}\n`;
+    message += `<b>Конец:</b> ${endDate.toLocaleDateString()}\n\n`;
+    message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
+    message += `<b>Сброс трафика:</b> ${new Date(client.traffic_reset_date).toLocaleDateString()}\n`;
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /client_info:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /add_client - Добавить клиента
+bot.onText(/\/add_client/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  userStates.set(userId, { action: "add_client", step: "name" });
+  
+  bot.sendMessage(
+    chatId,
+    "➕ <b>Добавление нового клиента</b>\n\n" +
+      "Введите имя клиента:",
+    { parse_mode: "HTML" }
+  );
+});
+
+// Команда /remove_client - Удалить клиента
+bot.onText(/\/remove_client/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  try {
+    const response = await apiClient.getClients();
+    const clients = response.clients || [];
+
+    if (clients.length === 0) {
+      bot.sendMessage(chatId, "📭 Клиенты не найдены");
+      return;
+    }
+
+    let message = "🗑️ <b>Удаление клиента</b>\n\n";
+    message += "Выберите клиента для удаления:\n\n";
+
+    const keyboard = {
+      inline_keyboard: clients.map(client => [{
+        text: `${client.name} (${client.uuid.substring(0, 8)}...)`,
+        callback_data: `remove_${client.uuid}`
+      }])
+    };
+
+    keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "remove_cancel" }]);
+
+    bot.sendMessage(chatId, message, {
+      parse_mode: "HTML",
+      reply_markup: keyboard
+    });
+  } catch (error) {
+    console.error("Ошибка /remove_client:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /server_status - Статус сервера
+bot.onText(/\/server_status/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  try {
+    const clientsResponse = await apiClient.getClients();
+    const clients = clientsResponse.clients || [];
+    
+    const activeClients = clients.filter(c => c.status === "active").length;
+    const blockedClients = clients.filter(c => c.status === "blocked").length;
+
+    let message = `⚙️ <b>Статус сервера</b>\n\n`;
+    message += `✅ Сервер: Онлайн\n`;
+    message += `🌐 IP: ${SERVER_IP}\n`;
+    message += `📊 База данных: Подключена\n\n`;
+    message += `👥 <b>Клиенты:</b>\n`;
+    message += `   Всего: ${clients.length}\n`;
+    message += `   Активных: ${activeClients}\n`;
+    message += `   Заблокированных: ${blockedClients}\n`;
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /server_status:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// ============================================================================
+// КОМАНДЫ КЛИЕНТА
+// ============================================================================
+
+// Команда /my_vpn - Моя статистика VPN
+bot.onText(/\/my_vpn/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (isAdmin(userId)) {
+    bot.sendMessage(chatId, "ℹ️ Эта команда доступна только для клиентов");
+    return;
+  }
+
+  try {
+    const client = await db.getClientByTelegramId(userId);
+
+    if (!client) {
+      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      return;
+    }
+
+    const response = await apiClient.getClient(client.uuid);
+    const clientData = response.client;
+
+    const endDate = new Date(clientData.subscription_end);
+    const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+    const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+    const trafficPercent = Math.round((clientData.traffic_used_gb / clientData.traffic_limit_gb) * 100);
+
+    let message = `📊 <b>Моя статистика VPN</b>\n\n`;
+    message += `👤 <b>Имя:</b> ${clientData.name}\n`;
+    message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
+    message += `<b>Статус:</b> ${status}\n`;
+    message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
+    message += `<b>Конец подписки:</b> ${endDate.toLocaleDateString()}\n\n`;
+    message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+    message += `<b>Сброс трафика:</b> ${new Date(clientData.traffic_reset_date).toLocaleDateString()}\n`;
+
+    if (daysLeft <= 7 && daysLeft > 0) {
+      message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
+    }
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /my_vpn:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /my_link - Ссылка подключения
+bot.onText(/\/my_link/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (isAdmin(userId)) {
+    bot.sendMessage(chatId, "ℹ️ Эта команда доступна только для клиентов");
+    return;
+  }
+
+  try {
+    const client = await db.getClientByTelegramId(userId);
+
+    if (!client) {
+      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      return;
+    }
+
+    let message = `🔗 <b>Ссылка подключения</b>\n\n`;
+    message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
+    message += `Для получения ссылки подключения обратитесь к администратору.\n`;
+    message += `Администратор сгенерирует для вас vless:// ссылку и QR код.`;
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /my_link:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /my_requests - Мои запросы на продление
+bot.onText(/\/my_requests/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (isAdmin(userId)) {
+    bot.sendMessage(chatId, "ℹ️ Эта команда доступна только для клиентов");
+    return;
+  }
+
+  try {
+    const client = await db.getClientByTelegramId(userId);
+
+    if (!client) {
+      bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
+      return;
+    }
+
+    const response = await apiClient.getClientExtensionRequests(client.uuid);
+    const requests = response.requests || [];
+
+    if (requests.length === 0) {
+      bot.sendMessage(chatId, "📭 У вас нет запросов на продление");
+      return;
+    }
+
+    let message = `📝 <b>Мои запросы на продление (${requests.length}):</b>\n\n`;
+
+    requests.forEach((req, i) => {
+      const statusEmoji = req.status === "pending" ? "⏳" : req.status === "approved" ? "✅" : "❌";
+      const statusText = req.status === "pending" ? "Ожидает" : req.status === "approved" ? "Одобрен" : "Отклонен";
+      
+      message += `${i + 1}. ${statusEmoji} <b>${statusText}</b>\n`;
+      message += `   Запрошено: ${req.requested_months} мес. (${req.requested_days} дней)\n`;
+      
+      if (req.status === "approved") {
+        message += `   Одобрено: ${req.approved_days} дней\n`;
+      } else if (req.status === "denied" && req.denial_reason) {
+        message += `   Причина: ${req.denial_reason}\n`;
+      }
+      
+      message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+    });
+
+    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+  } catch (error) {
+    console.error("Ошибка /my_requests:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// ============================================================================
 // ОБРАБОТЧИКИ КНОПОК
 // ============================================================================
 
@@ -232,7 +541,121 @@ bot.on("message", async (msg) => {
   // Обработка состояний пользователя
   const userState = userStates.get(userId);
   if (userState) {
-    // TODO: Обработка интерактивных состояний
+    // Обработка добавления клиента
+    if (userState.action === "add_client") {
+      if (userState.step === "name") {
+        userState.name = text;
+        userState.step = "telegram_id";
+        userStates.set(userId, userState);
+        
+        bot.sendMessage(
+          chatId,
+          "Введите Telegram ID клиента (или 0 если не известен):"
+        );
+        return;
+      } else if (userState.step === "telegram_id") {
+        const telegramId = parseInt(text);
+        
+        if (isNaN(telegramId)) {
+          bot.sendMessage(chatId, "❌ Неверный формат. Введите число:");
+          return;
+        }
+        
+        userState.telegram_id = telegramId === 0 ? null : telegramId;
+        userState.step = "subscription_days";
+        userStates.set(userId, userState);
+        
+        bot.sendMessage(
+          chatId,
+          "Введите количество дней подписки (по умолчанию 30):"
+        );
+        return;
+      } else if (userState.step === "subscription_days") {
+        const days = parseInt(text);
+        
+        if (isNaN(days) || days <= 0) {
+          bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+          return;
+        }
+        
+        // Создаем клиента через API
+        try {
+          const response = await apiClient.createClient({
+            name: userState.name,
+            telegram_id: userState.telegram_id,
+            subscription_days: days,
+            traffic_limit_gb: 100
+          });
+          
+          const client = response.client;
+          
+          bot.sendMessage(
+            chatId,
+            `✅ <b>Клиент создан успешно!</b>\n\n` +
+              `👤 Имя: ${client.name}\n` +
+              `🆔 UUID: <code>${client.uuid}</code>\n` +
+              `📱 Telegram ID: ${client.telegram_id || "не указан"}\n` +
+              `📅 Подписка: ${days} дней\n` +
+              `📊 Лимит трафика: ${client.traffic_limit_gb} GB`,
+            { parse_mode: "HTML" }
+          );
+          
+          userStates.delete(userId);
+        } catch (error) {
+          console.error("Ошибка создания клиента:", error);
+          bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+          userStates.delete(userId);
+        }
+        return;
+      }
+    }
+    
+    // Обработка изменения периода запроса
+    if (userState.action === "change_period") {
+      const days = parseInt(text);
+      
+      if (isNaN(days) || days <= 0) {
+        bot.sendMessage(chatId, "❌ Неверный формат. Введите положительное число:");
+        return;
+      }
+      
+      try {
+        // Одобряем запрос с новым периодом
+        const response = await apiClient.approveExtensionRequest(userState.requestId, days);
+        const request = response.request;
+        
+        bot.editMessageText(
+          `✅ <b>Запрос одобрен с измененным периодом</b>\n\n` +
+            `UUID: <code>${request.client_uuid}</code>\n` +
+            `Период: ${days} дней\n\n` +
+            `Подписка продлена автоматически.`,
+          {
+            chat_id: chatId,
+            message_id: userState.messageId,
+            parse_mode: "HTML",
+          }
+        );
+        
+        // Уведомляем клиента
+        if (request.telegram_id) {
+          bot.sendMessage(
+            request.telegram_id,
+            `✅ <b>Ваш запрос одобрен!</b>\n\n` +
+              `Подписка продлена на ${days} дней.\n` +
+              `Используйте /my_vpn для просмотра обновленной информации.`,
+            { parse_mode: "HTML" }
+          );
+        }
+        
+        userStates.delete(userId);
+      } catch (error) {
+        console.error("Ошибка изменения периода:", error);
+        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+        userStates.delete(userId);
+      }
+      return;
+    }
+    
     return;
   }
 
@@ -247,46 +670,81 @@ bot.on("message", async (msg) => {
     if (isAdmin(userId)) {
       // Кнопки администратора
       if (text === "👥 Клиенты") {
-        const clients = await db.getAllClients();
+        const response = await apiClient.getClients();
+        const clients = response.clients || [];
         
         if (clients.length === 0) {
           bot.sendMessage(chatId, "📭 Клиенты не найдены");
           return;
         }
 
-        let response = `👥 <b>Список клиентов (${clients.length}):</b>\n\n`;
+        let message = `👥 <b>Список клиентов (${clients.length}):</b>\n\n`;
         clients.forEach((client, i) => {
           const status = client.status === "active" ? "✅" : "❌";
-          response += `${i + 1}. ${status} <b>${client.name}</b>\n`;
-          response += `   UUID: <code>${client.uuid}</code>\n`;
-          response += `   Telegram: ${client.telegram_id || "не связан"}\n\n`;
+          const endDate = new Date(client.subscription_end);
+          const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+          
+          message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
+          message += `   UUID: <code>${client.uuid}</code>\n`;
+          message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
+          message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n\n`;
         });
 
-        bot.sendMessage(chatId, response, { parse_mode: "HTML" });
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "📊 Статистика") {
-        bot.sendMessage(
-          chatId,
-          "📊 <b>Статистика сервера</b>\n\n" +
-            "Эта функция будет доступна после интеграции с API",
-          { parse_mode: "HTML" }
-        );
+        const clientsResponse = await apiClient.getClients();
+        const clients = clientsResponse.clients || [];
+        
+        const activeClients = clients.filter(c => c.status === "active").length;
+        const blockedClients = clients.filter(c => c.status === "blocked").length;
+        const totalTraffic = clients.reduce((sum, c) => sum + (c.traffic_used_gb || 0), 0);
+        
+        let message = `📊 <b>Статистика сервера</b>\n\n`;
+        message += `👥 <b>Клиенты:</b>\n`;
+        message += `   Всего: ${clients.length}\n`;
+        message += `   Активных: ${activeClients}\n`;
+        message += `   Заблокированных: ${blockedClients}\n\n`;
+        message += `📈 <b>Трафик:</b>\n`;
+        message += `   Всего использовано: ${totalTraffic.toFixed(2)} GB\n`;
+        
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "📝 Запросы") {
-        bot.sendMessage(
-          chatId,
-          "📝 <b>Запросы на продление</b>\n\n" +
-            "Эта функция будет доступна после интеграции с API",
-          { parse_mode: "HTML" }
-        );
+        const response = await apiClient.getExtensionRequests();
+        const allRequests = response.requests || [];
+        const pendingRequests = allRequests.filter(r => r.status === "pending");
+        
+        if (pendingRequests.length === 0) {
+          bot.sendMessage(chatId, "📭 Нет ожидающих запросов");
+          return;
+        }
+        
+        let message = `📝 <b>Запросы на продление (${pendingRequests.length}):</b>\n\n`;
+        
+        pendingRequests.forEach((req, i) => {
+          message += `${i + 1}. <b>${req.client_name}</b>\n`;
+          message += `   UUID: <code>${req.client_uuid}</code>\n`;
+          message += `   Запрошено: ${req.requested_months} мес. (${req.requested_days} дней)\n`;
+          message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+        });
+        
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "⚙️ Сервер") {
-        bot.sendMessage(
-          chatId,
-          `⚙️ <b>Статус сервера</b>\n\n` +
-            `✅ Сервер: Онлайн\n` +
-            `🌐 IP: ${SERVER_IP}\n` +
-            `📊 База данных: Подключена\n\n` +
-            `Детальная статистика будет доступна после интеграции с API`,
-          { parse_mode: "HTML" }
-        );
+        const clientsResponse = await apiClient.getClients();
+        const clients = clientsResponse.clients || [];
+        
+        const activeClients = clients.filter(c => c.status === "active").length;
+        const blockedClients = clients.filter(c => c.status === "blocked").length;
+
+        let message = `⚙️ <b>Статус сервера</b>\n\n`;
+        message += `✅ Сервер: Онлайн\n`;
+        message += `🌐 IP: ${SERVER_IP}\n`;
+        message += `📊 База данных: Подключена\n\n`;
+        message += `👥 <b>Клиенты:</b>\n`;
+        message += `   Всего: ${clients.length}\n`;
+        message += `   Активных: ${activeClients}\n`;
+        message += `   Заблокированных: ${blockedClients}\n`;
+
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       }
     } else {
       // Кнопки клиента
@@ -302,22 +760,34 @@ bot.on("message", async (msg) => {
       }
 
       if (text === "📊 Мой VPN") {
-        bot.sendMessage(
-          chatId,
-          `📊 <b>Статистика VPN</b>\n\n` +
-            `👤 Имя: ${client.name}\n` +
-            `🆔 UUID: <code>${client.uuid}</code>\n\n` +
-            `Детальная статистика будет доступна после интеграции с API`,
-          { parse_mode: "HTML" }
-        );
+        const response = await apiClient.getClient(client.uuid);
+        const clientData = response.client;
+
+        const endDate = new Date(clientData.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+        const trafficPercent = Math.round((clientData.traffic_used_gb / clientData.traffic_limit_gb) * 100);
+
+        let message = `📊 <b>Моя статистика VPN</b>\n\n`;
+        message += `👤 <b>Имя:</b> ${clientData.name}\n`;
+        message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
+        message += `<b>Конец подписки:</b> ${endDate.toLocaleDateString()}\n\n`;
+        message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+
+        if (daysLeft <= 7 && daysLeft > 0) {
+          message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
+        }
+
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "🔗 Моя ссылка") {
-        bot.sendMessage(
-          chatId,
-          `🔗 <b>Ссылка подключения</b>\n\n` +
-            `Эта функция будет доступна после интеграции с API\n\n` +
-            `Ваш UUID: <code>${client.uuid}</code>`,
-          { parse_mode: "HTML" }
-        );
+        let message = `🔗 <b>Ссылка подключения</b>\n\n`;
+        message += `Ваш UUID: <code>${client.uuid}</code>\n\n`;
+        message += `Для получения ссылки подключения обратитесь к администратору.\n`;
+        message += `Администратор сгенерирует для вас vless:// ссылку и QR код.`;
+
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "🔑 Запросить ключ") {
         // Показываем выбор периода
         const keyboard = {
@@ -345,12 +815,33 @@ bot.on("message", async (msg) => {
           }
         );
       } else if (text === "📝 Мои запросы") {
-        bot.sendMessage(
-          chatId,
-          `📝 <b>Мои запросы на продление</b>\n\n` +
-            `Эта функция будет доступна после интеграции с API`,
-          { parse_mode: "HTML" }
-        );
+        const response = await apiClient.getClientExtensionRequests(client.uuid);
+        const requests = response.requests || [];
+
+        if (requests.length === 0) {
+          bot.sendMessage(chatId, "📭 У вас нет запросов на продление");
+          return;
+        }
+
+        let message = `📝 <b>Мои запросы на продление (${requests.length}):</b>\n\n`;
+
+        requests.forEach((req, i) => {
+          const statusEmoji = req.status === "pending" ? "⏳" : req.status === "approved" ? "✅" : "❌";
+          const statusText = req.status === "pending" ? "Ожидает" : req.status === "approved" ? "Одобрен" : "Отклонен";
+          
+          message += `${i + 1}. ${statusEmoji} <b>${statusText}</b>\n`;
+          message += `   Запрошено: ${req.requested_months} мес. (${req.requested_days} дней)\n`;
+          
+          if (req.status === "approved") {
+            message += `   Одобрено: ${req.approved_days} дней\n`;
+          } else if (req.status === "denied" && req.denial_reason) {
+            message += `   Причина: ${req.denial_reason}\n`;
+          }
+          
+          message += `   Дата: ${new Date(req.created_at).toLocaleDateString()}\n\n`;
+        });
+
+        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       }
     }
   } catch (error) {
@@ -369,7 +860,7 @@ bot.on("callback_query", async (query) => {
   const data = query.data;
 
   try {
-    // Запросы на продление
+    // Запросы на продление от клиента
     if (data.startsWith("request_")) {
       if (data === "request_cancel") {
         bot.editMessageText("❌ Запрос отменен", {
@@ -391,50 +882,62 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      // TODO: Создать запрос через API
-      // TODO: Отправить уведомление админу
+      // Создаем запрос через API
+      try {
+        const response = await apiClient.createExtensionRequest({
+          client_uuid: client.uuid,
+          telegram_id: userId,
+          requested_months: months
+        });
 
-      bot.editMessageText(
-        `✅ <b>Запрос отправлен!</b>\n\n` +
-          `Период: ${months} ${months === 1 ? "месяц" : "месяцев"}\n\n` +
-          `Администратор получил ваш запрос и рассмотрит его в ближайшее время.\n` +
-          `Вы получите уведомление о решении.`,
-        {
-          chat_id: chatId,
-          message_id: query.message.message_id,
-          parse_mode: "HTML",
-        }
-      );
-
-      // Отправляем уведомление админу (заглушка)
-      if (TELEGRAM_ADMIN_ID) {
-        const keyboard = {
-          inline_keyboard: [
-            [
-              { text: "✅ Разрешить", callback_data: `approve_${client.uuid}_${months}` },
-              { text: "❌ Отказать", callback_data: `deny_${client.uuid}` },
-            ],
-            [
-              { text: "📝 Другой период", callback_data: `change_${client.uuid}` },
-            ],
-          ],
-        };
-
-        bot.sendMessage(
-          TELEGRAM_ADMIN_ID,
-          `🔔 <b>Новый запрос на продление</b>\n\n` +
-            `👤 Клиент: ${client.name}\n` +
-            `🆔 UUID: <code>${client.uuid}</code>\n` +
-            `📅 Запрошено: ${months} ${months === 1 ? "месяц" : "месяцев"}\n\n` +
-            `Выберите действие:`,
+        bot.editMessageText(
+          `✅ <b>Запрос отправлен!</b>\n\n` +
+            `Период: ${months} ${months === 1 ? "месяц" : "месяцев"}\n\n` +
+            `Администратор получил ваш запрос и рассмотрит его в ближайшее время.\n` +
+            `Вы получите уведомление о решении.`,
           {
+            chat_id: chatId,
+            message_id: query.message.message_id,
             parse_mode: "HTML",
-            reply_markup: keyboard,
           }
         );
-      }
 
-      bot.answerCallbackQuery(query.id);
+        // Отправляем уведомление админу
+        if (TELEGRAM_ADMIN_ID) {
+          const keyboard = {
+            inline_keyboard: [
+              [
+                { text: "✅ Разрешить", callback_data: `approve_${response.request.id}_${months}` },
+                { text: "❌ Отказать", callback_data: `deny_${response.request.id}` },
+              ],
+              [
+                { text: "📝 Другой период", callback_data: `change_${response.request.id}_${client.uuid}` },
+              ],
+            ],
+          };
+
+          bot.sendMessage(
+            TELEGRAM_ADMIN_ID,
+            `🔔 <b>Новый запрос на продление</b>\n\n` +
+              `👤 Клиент: ${client.name}\n` +
+              `🆔 UUID: <code>${client.uuid}</code>\n` +
+              `📅 Запрошено: ${months} ${months === 1 ? "месяц" : "месяцев"} (${response.request.requested_days} дней)\n\n` +
+              `Выберите действие:`,
+            {
+              parse_mode: "HTML",
+              reply_markup: keyboard,
+            }
+          );
+        }
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка создания запроса:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
     }
 
     // Одобрение запроса админом
@@ -448,25 +951,45 @@ bot.on("callback_query", async (query) => {
       }
 
       const parts = data.split("_");
-      const clientUuid = parts[1];
+      const requestId = parts[1];
       const months = parseInt(parts[2]);
 
-      // TODO: Одобрить запрос через API
-      // TODO: Продлить подписку клиента
+      try {
+        // Одобряем запрос через API
+        const response = await apiClient.approveExtensionRequest(requestId, null);
+        const request = response.request;
 
-      bot.editMessageText(
-        `✅ <b>Запрос одобрен</b>\n\n` +
-          `UUID: <code>${clientUuid}</code>\n` +
-          `Период: ${months} ${months === 1 ? "месяц" : "месяцев"}\n\n` +
-          `Подписка продлена автоматически.`,
-        {
-          chat_id: chatId,
-          message_id: query.message.message_id,
-          parse_mode: "HTML",
+        bot.editMessageText(
+          `✅ <b>Запрос одобрен</b>\n\n` +
+            `UUID: <code>${request.client_uuid}</code>\n` +
+            `Период: ${months} ${months === 1 ? "месяц" : "месяцев"} (${request.approved_days} дней)\n\n` +
+            `Подписка продлена автоматически.`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+          }
+        );
+
+        // Уведомляем клиента
+        if (request.telegram_id) {
+          bot.sendMessage(
+            request.telegram_id,
+            `✅ <b>Ваш запрос одобрен!</b>\n\n` +
+              `Подписка продлена на ${request.approved_days} дней.\n` +
+              `Используйте /my_vpn для просмотра обновленной информации.`,
+            { parse_mode: "HTML" }
+          );
         }
-      );
 
-      bot.answerCallbackQuery(query.id, { text: "✅ Запрос одобрен" });
+        bot.answerCallbackQuery(query.id, { text: "✅ Запрос одобрен" });
+      } catch (error) {
+        console.error("Ошибка одобрения запроса:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
     }
 
     // Отказ в запросе
@@ -479,21 +1002,42 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.split("_")[1];
+      const requestId = data.split("_")[1];
 
-      // TODO: Отклонить запрос через API
+      try {
+        // Отклоняем запрос через API
+        const response = await apiClient.denyExtensionRequest(requestId, "Отклонено администратором");
+        const request = response.request;
 
-      bot.editMessageText(
-        `❌ <b>Запрос отклонен</b>\n\n` +
-          `UUID: <code>${clientUuid}</code>`,
-        {
-          chat_id: chatId,
-          message_id: query.message.message_id,
-          parse_mode: "HTML",
+        bot.editMessageText(
+          `❌ <b>Запрос отклонен</b>\n\n` +
+            `UUID: <code>${request.client_uuid}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+          }
+        );
+
+        // Уведомляем клиента
+        if (request.telegram_id) {
+          bot.sendMessage(
+            request.telegram_id,
+            `❌ <b>Ваш запрос отклонен</b>\n\n` +
+              `К сожалению, администратор отклонил ваш запрос на продление.\n` +
+              `Для уточнения причины обратитесь к администратору.`,
+            { parse_mode: "HTML" }
+          );
         }
-      );
 
-      bot.answerCallbackQuery(query.id, { text: "❌ Запрос отклонен" });
+        bot.answerCallbackQuery(query.id, { text: "❌ Запрос отклонен" });
+      } catch (error) {
+        console.error("Ошибка отклонения запроса:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
     }
 
     // Изменение периода
@@ -506,11 +1050,14 @@ bot.on("callback_query", async (query) => {
         return;
       }
 
-      const clientUuid = data.split("_")[1];
+      const parts = data.split("_");
+      const requestId = parts[1];
+      const clientUuid = parts[2];
 
       // Устанавливаем состояние для ввода нового периода
       userStates.set(userId, {
         action: "change_period",
+        requestId: requestId,
         clientUuid: clientUuid,
         messageId: query.message.message_id,
       });
@@ -528,6 +1075,56 @@ bot.on("callback_query", async (query) => {
       );
 
       bot.answerCallbackQuery(query.id);
+    }
+
+    // Удаление клиента
+    else if (data.startsWith("remove_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      if (data === "remove_cancel") {
+        bot.editMessageText("❌ Удаление отменено", {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+        });
+        bot.answerCallbackQuery(query.id);
+        return;
+      }
+
+      const clientUuid = data.split("_")[1];
+
+      try {
+        // Получаем информацию о клиенте
+        const clientResponse = await apiClient.getClient(clientUuid);
+        const client = clientResponse.client;
+
+        // Удаляем клиента через API
+        await apiClient.deleteClient(clientUuid);
+
+        bot.editMessageText(
+          `✅ <b>Клиент удален</b>\n\n` +
+            `👤 Имя: ${client.name}\n` +
+            `🆔 UUID: <code>${clientUuid}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, { text: "✅ Клиент удален" });
+      } catch (error) {
+        console.error("Ошибка удаления клиента:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
     }
   } catch (error) {
     console.error("Ошибка обработки callback:", error);
