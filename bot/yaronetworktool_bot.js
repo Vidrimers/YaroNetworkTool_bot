@@ -6,7 +6,6 @@
 
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
-import sqlite3 from "sqlite3";
 import APIClient from "./utils/api-client.js";
 
 dotenv.config();
@@ -15,7 +14,6 @@ dotenv.config();
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_ADMIN_ID = parseInt(process.env.TELEGRAM_ADMIN_ID);
 const SERVER_IP = process.env.SERVER_IP || "localhost";
-const DB_PATH = process.env.DB_PATH || "./yaronetworkbase.db";
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error("TELEGRAM_BOT_TOKEN не установлен в .env");
@@ -26,40 +24,17 @@ if (!TELEGRAM_BOT_TOKEN) {
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 const apiClient = new APIClient();
 
-// Класс для работы с базой данных
-class DB {
-  constructor(dbPath) {
-    this.db = new sqlite3.Database(dbPath);
-  }
-
-  close() {
-    return new Promise((resolve) => this.db.close(resolve));
-  }
-
-  // Получить клиента по Telegram ID
-  getClientByTelegramId(telegramId) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        "SELECT * FROM clients WHERE telegram_id = ?",
-        [telegramId],
-        (err, row) => {
-          err ? reject(err) : resolve(row || null);
-        }
-      );
-    });
-  }
-
-  // Получить всех клиентов
-  getAllClients() {
-    return new Promise((resolve, reject) => {
-      this.db.all("SELECT * FROM clients", (err, rows) => {
-        err ? reject(err) : resolve(rows || []);
-      });
-    });
+// Вспомогательная функция для получения клиента по Telegram ID через API
+async function getClientByTelegramId(telegramId) {
+  try {
+    const response = await apiClient.getClients();
+    const clients = response.clients || [];
+    return clients.find(c => c.telegram_id === telegramId) || null;
+  } catch (error) {
+    console.error("Ошибка получения клиента по Telegram ID:", error);
+    return null;
   }
 }
-
-const db = new DB(DB_PATH);
 
 // Состояния пользователей для интерактивных команд
 const userStates = new Map();
@@ -100,7 +75,7 @@ function getMainKeyboard(isAdminUser = false) {
 console.log("\n[YaroNetworkTool VPN Bot] Запущен\n");
 console.log(`Admin ID: ${TELEGRAM_ADMIN_ID}`);
 console.log(`Server IP: ${SERVER_IP}`);
-console.log(`Database: ${DB_PATH}\n`);
+console.log(`API URL: ${apiClient.baseURL}\n`);
 
 // ============================================================================
 // ОБРАБОТЧИКИ КОМАНД
@@ -132,7 +107,7 @@ bot.onText(/\/start/, async (msg) => {
       );
     } else {
       // Проверяем, зарегистрирован ли клиент
-      const client = await db.getClientByTelegramId(userId);
+      const client = await getClientByTelegramId(userId);
 
       if (client) {
         // Клиент зарегистрирован
@@ -482,7 +457,7 @@ bot.onText(/\/my_vpn/, async (msg) => {
   }
 
   try {
-    const client = await db.getClientByTelegramId(userId);
+    const client = await getClientByTelegramId(userId);
 
     if (!client) {
       bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
@@ -528,7 +503,7 @@ bot.onText(/\/my_link/, async (msg) => {
   }
 
   try {
-    const client = await db.getClientByTelegramId(userId);
+    const client = await getClientByTelegramId(userId);
 
     if (!client) {
       bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
@@ -558,7 +533,7 @@ bot.onText(/\/my_requests/, async (msg) => {
   }
 
   try {
-    const client = await db.getClientByTelegramId(userId);
+    const client = await getClientByTelegramId(userId);
 
     if (!client) {
       bot.sendMessage(chatId, "❌ Вы не зарегистрированы в системе");
@@ -822,7 +797,7 @@ bot.on("message", async (msg) => {
       }
     } else {
       // Кнопки клиента
-      const client = await db.getClientByTelegramId(userId);
+      const client = await getClientByTelegramId(userId);
 
       if (!client) {
         bot.sendMessage(
@@ -946,7 +921,7 @@ bot.on("callback_query", async (query) => {
       }
 
       const months = parseInt(data.split("_")[1]);
-      const client = await db.getClientByTelegramId(userId);
+      const client = await getClientByTelegramId(userId);
 
       if (!client) {
         bot.answerCallbackQuery(query.id, {
@@ -1219,12 +1194,10 @@ bot.on("polling_error", (error) => {
 
 process.on("SIGINT", async () => {
   console.log("\n[YaroNetworkTool VPN Bot] Остановка...");
-  await db.close();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
   console.log("\n[YaroNetworkTool VPN Bot] Остановка...");
-  await db.close();
   process.exit(0);
 });
