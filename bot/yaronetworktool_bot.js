@@ -441,7 +441,8 @@ bot.onText(/\/server_status/, async (msg) => {
 
     let message = `⚙️ <b>Статус сервера</b>\n\n`;
     message += `✅ Сервер: Онлайн\n`;
-    message += `🌐 IP: ${SERVER_IP}\n`;
+    message += `🌐 VPN: ${SERVER_IP}:443\n`;
+    message += `🔧 API: ${SERVER_IP}:333\n`;
     message += `📊 База данных: Подключена\n\n`;
     message += `👥 <b>Клиенты:</b>\n`;
     message += `   Всего: ${clients.length}\n`;
@@ -799,7 +800,8 @@ bot.on("message", async (msg) => {
 
         let message = `⚙️ <b>Статус сервера</b>\n\n`;
         message += `✅ Сервер: Онлайн\n`;
-        message += `🌐 IP: ${SERVER_IP}\n`;
+        message += `🌐 VPN: ${SERVER_IP}:443\n`;
+        message += `🔧 API: ${SERVER_IP}:333\n`;
         message += `📊 База данных: Подключена\n\n`;
         message += `👥 <b>Клиенты:</b>\n`;
         message += `   Всего: ${clients.length}\n`;
