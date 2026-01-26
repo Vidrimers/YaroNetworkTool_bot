@@ -9,10 +9,17 @@ import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import APIClient from "./utils/api-client.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const execAsync = promisify(exec);
-dotenv.config();
+
+// Загружаем .env из корня проекта (на уровень выше)
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 // Конфигурация
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -21,6 +28,7 @@ const XRAY_CONFIG_PATH = process.env.XRAY_CONFIG_PATH || "/usr/local/etc/xray/co
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error("TELEGRAM_BOT_TOKEN не установлен в .env");
+  console.error("Путь к .env:", join(__dirname, '..', '.env'));
   process.exit(1);
 }
 

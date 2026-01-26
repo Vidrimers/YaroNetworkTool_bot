@@ -1099,6 +1099,9 @@ bot.on("message", async (msg) => {
             ],
             [
               { text: "⚠️ Баны и предупреждения", callback_data: "admin_bans_warnings" }
+            ],
+            [
+              { text: "🔔 Проверить подписки", callback_data: "admin_check_subscriptions" }
             ]
           ]
         };
@@ -1686,6 +1689,102 @@ bot.on("callback_query", async (query) => {
       });
 
       bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Проверка подписок вручную
+    if (data === "admin_check_subscriptions") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        bot.editMessageText(
+          `🔔 <b>Проверка подписок</b>\n\n` +
+            `⏳ Запуск проверки...`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        // Запускаем скрипт проверки подписок
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const scriptPath = join(__dirname, 'subscription-checker.js');
+        
+        const { stdout, stderr } = await execAsync(`node "${scriptPath}"`);
+        
+        // Парсим вывод скрипта
+        let expiredCount = 0;
+        let expiringCount = 0;
+        
+        // Ищем строки с результатами
+        const expiredMatch = stdout.match(/Истекших подписок:\s*(\d+)/);
+        const expiringMatch = stdout.match(/Истекающих подписок[^:]*:\s*(\d+)/);
+        
+        if (expiredMatch) {
+          expiredCount = parseInt(expiredMatch[1]);
+        }
+        if (expiringMatch) {
+          expiringCount = parseInt(expiringMatch[1]);
+        }
+        
+        let resultMessage = `🔔 <b>Проверка подписок</b>\n\n`;
+        resultMessage += `✅ Проверка завершена\n\n`;
+        resultMessage += `📊 <b>Результаты:</b>\n`;
+        resultMessage += `• Истекших подписок: ${expiredCount}\n`;
+        resultMessage += `• Истекающих подписок (≤3 дней): ${expiringCount}\n\n`;
+        
+        if (expiredCount > 0) {
+          resultMessage += `🔒 Истекшие подписки автоматически заблокированы\n`;
+        }
+        
+        if (expiringCount > 0) {
+          resultMessage += `📨 Уведомления отправлены клиентам\n`;
+        }
+        
+        if (expiredCount === 0 && expiringCount === 0) {
+          resultMessage += `✅ Все подписки в порядке\n`;
+        }
+        
+        resultMessage += `\n<i>Автоматическая проверка: каждый день в 10:00</i>`;
+        
+        bot.editMessageText(resultMessage, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Проверка завершена",
+          show_alert: false,
+        });
+      } catch (error) {
+        console.error("Ошибка проверки подписок:", error);
+        
+        bot.editMessageText(
+          `🔔 <b>Проверка подписок</b>\n\n` +
+            `❌ Ошибка выполнения:\n<code>${error.message}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка проверки",
+          show_alert: true,
+        });
+      }
       return;
     }
 
