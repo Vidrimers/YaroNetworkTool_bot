@@ -1096,7 +1096,10 @@ bot.on("message", async (msg) => {
             `🔗 Моя ссылка - Ссылка и QR код\n` +
             `🔑 Запросить ключ - Продлить подписку\n` +
             `📝 Мои запросы - История запросов`,
-          { parse_mode: "HTML" }
+          { 
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
         );
       }
       return;
