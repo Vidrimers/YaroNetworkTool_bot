@@ -50,6 +50,17 @@ async function getActiveDevices() {
       return {};
     }
     
+    // Получаем всех клиентов из API для маппинга имя -> UUID
+    const clientsResponse = await apiClient.getClients();
+    const clients = clientsResponse.clients || [];
+    const nameToUuid = new Map();
+    
+    clients.forEach(client => {
+      nameToUuid.set(client.name, client.uuid);
+    });
+    
+    console.log(`[getActiveDevices] Загружено клиентов из API: ${clients.length}`);
+    
     // Запуск на сервере Linux - читаем логи напрямую
     const isRoot = process.getuid && process.getuid() === 0;
     const sudoPrefix = isRoot ? "" : "sudo ";
@@ -70,7 +81,7 @@ async function getActiveDevices() {
       if (!line.trim()) continue;
 
       try {
-        // Формат лога X-Ray: timestamp [level] message
+        // Формат лога X-Ray: 2026/01/27 11:36:04.531652 from 85.172.103.228:2951 accepted tcp:1.1.1.1:853 [direct] email: Бим
         // Ищем строки с accepted connection
         if (!line.includes('accepted')) continue;
         acceptedLines++;
@@ -80,14 +91,21 @@ async function getActiveDevices() {
           console.log(`[getActiveDevices] Пример строки лога: ${line.substring(0, 200)}`);
         }
 
-        // Извлекаем UUID клиента (формат: email:uuid@domain или просто uuid)
-        const uuidMatch = line.match(/email:([a-f0-9-]{36})|([a-f0-9-]{36})/i);
-        if (!uuidMatch) {
-          if (acceptedLines <= 3) console.log(`[getActiveDevices] UUID не найден`);
+        // Извлекаем имя клиента (формат: email: Имя)
+        const nameMatch = line.match(/email:\s*(.+?)$/);
+        if (!nameMatch) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] Имя клиента не найдено`);
           continue;
         }
 
-        const uuid = uuidMatch[1] || uuidMatch[2];
+        const clientName = nameMatch[1].trim();
+        
+        // Получаем UUID по имени
+        const uuid = nameToUuid.get(clientName);
+        if (!uuid) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] UUID не найден для клиента: ${clientName}`);
+          continue;
+        }
 
         // Извлекаем IP адрес (формат: from IP:port)
         const ipMatch = line.match(/from\s+(\d+\.\d+\.\d+\.\d+)/);
@@ -98,8 +116,8 @@ async function getActiveDevices() {
 
         const ip = ipMatch[1];
 
-        // Извлекаем timestamp (формат: 2026/01/26 12:00:00)
-        const timeMatch = line.match(/(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/);
+        // Извлекаем timestamp (формат: 2026/01/27 11:36:04.531652)
+        const timeMatch = line.match(/^(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/);
         if (!timeMatch) {
           if (acceptedLines <= 3) console.log(`[getActiveDevices] Timestamp не найден`);
           continue;
