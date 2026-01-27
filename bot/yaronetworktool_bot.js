@@ -8,6 +8,7 @@ import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
+import QRCode from "qrcode";
 import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
 import { getActiveDevices } from "./device-monitor.js";
@@ -1423,23 +1424,42 @@ bot.on("message", async (msg) => {
           message += `<b>Твоя ссылка для подключения:</b>\n`;
           message += `<code>${vlessLink}</code>\n\n`;
           message += `📱 <b>Как подключиться:</b>\n`;
-          message += `1. Скопируй ссылку выше\n`;
+          message += `1. Скопируй ссылку выше или отсканируй QR код ниже\n`;
           message += `2. Открой VPN клиент:\n`;
           message += `   • Windows: v2rayN или Amnezia VPN\n`;
           message += `   • Linux: v2rayN\n`;
           message += `   • Android: v2rayNG\n`;
           message += `   • iOS/macOS: Streisand\n`;
-          message += `3. Вставь ссылку в клиент\n`;
+          message += `3. Вставь ссылку в клиент или отсканируй QR\n`;
           message += `4. Подключись к VPN\n\n`;
           message += `💡 <b>Совет:</b> Нажми на ссылку чтобы скопировать\n\n`;
           message += `<i>⚠️ Amnezia VPN работает только на ПК (Windows/Mac/Linux)</i>`;
+          
+          // Отправляем сообщение
+          bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+          
+          // Генерируем и отправляем QR код
+          try {
+            const qrBuffer = await QRCode.toBuffer(vlessLink, {
+              errorCorrectionLevel: 'M',
+              type: 'png',
+              width: 512,
+              margin: 2
+            });
+            
+            bot.sendPhoto(chatId, qrBuffer, {
+              caption: `📱 QR код для быстрого подключения\n\nОтсканируй этот код в VPN клиенте`
+            });
+          } catch (qrError) {
+            console.error('Ошибка генерации QR кода:', qrError);
+          }
         } else {
           message += `Твой UUID: <code>${client.uuid}</code>\n\n`;
           message += `⚠️ Автоматическая генерация ссылок временно недоступна.\n`;
           message += `Для получения ссылки подключения обратись к администратору.`;
+          
+          bot.sendMessage(chatId, message, { parse_mode: "HTML" });
         }
-
-        bot.sendMessage(chatId, message, { parse_mode: "HTML" });
       } else if (text === "🔑 Запросить ключ") {
         // Показываем выбор периода
         const keyboard = {
