@@ -386,6 +386,9 @@ bot.onText(/\/list_clients/, async (msg) => {
       return;
     }
 
+    // Получаем информацию об активных устройствах
+    const deviceInfo = await getActiveDevices();
+
     let message = `👥 <b>Список клиентов (${clients.length}):</b>\n\n`;
     
     clients.forEach((client, i) => {
@@ -394,11 +397,21 @@ bot.onText(/\/list_clients/, async (msg) => {
       const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
       const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
       
+      // Информация об устройствах
+      const devices = deviceInfo[client.uuid];
+      const deviceCount = devices ? devices.count : 0;
+      const maxDevices = client.max_devices || 2;
+      
       message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
       message += `   UUID: <code>${client.uuid}</code>\n`;
       message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
       message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
-      message += `   Трафик: ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n\n`;
+      message += `   Трафик: ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n`;
+      message += `   Устройств: ${deviceCount}/${maxDevices}`;
+      if (deviceCount > maxDevices) {
+        message += ` ⚠️ (превышен лимит!)`;
+      }
+      message += `\n\n`;
     });
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
@@ -1154,6 +1167,9 @@ bot.on("message", async (msg) => {
         const response = await apiClient.getClients();
         const clients = response.clients || [];
         
+        // Получаем информацию об активных устройствах
+        const deviceInfo = await getActiveDevices();
+        
         let message = `👥 <b>Список клиентов (${clients.length}):</b>\n\n`;
         
         if (clients.length === 0) {
@@ -1165,10 +1181,20 @@ bot.on("message", async (msg) => {
             const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
             const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
             
+            // Информация об устройствах
+            const devices = deviceInfo[client.uuid];
+            const deviceCount = devices ? devices.count : 0;
+            const maxDevices = client.max_devices || 2;
+            
             message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
             message += `   UUID: <code>${client.uuid}</code>\n`;
             message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
-            message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n\n`;
+            message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
+            message += `   Устройств: ${deviceCount}/${maxDevices}`;
+            if (deviceCount > maxDevices) {
+              message += ` ⚠️ (превышен лимит!)`;
+            }
+            message += `\n\n`;
           });
         }
 
@@ -1376,6 +1402,12 @@ bot.on("message", async (msg) => {
         const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
         const trafficPercent = Math.round((clientData.traffic_used_gb / clientData.traffic_limit_gb) * 100);
 
+        // Получаем информацию об активных устройствах
+        const deviceInfo = await getActiveDevices();
+        const devices = deviceInfo[clientData.uuid];
+        const deviceCount = devices ? devices.count : 0;
+        const maxDevices = clientData.max_devices || 2;
+
         let message = `📊 <b>Моя статистика VPN</b>\n\n`;
         message += `👤 <b>Имя:</b> ${clientData.name}\n`;
         message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
@@ -1383,6 +1415,12 @@ bot.on("message", async (msg) => {
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
         message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
+        
+        if (deviceCount > maxDevices) {
+          message += ` ⚠️ (превышен лимит!)`;
+        }
+        message += `\n`;
 
         if (daysLeft <= 7 && daysLeft > 0) {
           message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
@@ -3529,6 +3567,13 @@ bot.on("callback_query", async (query) => {
           const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
           const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
+          // Получаем информацию об активных устройствах
+          const deviceInfo = await getActiveDevices();
+          const devices = deviceInfo[clientData.uuid];
+          const deviceCount = devices ? devices.count : 0;
+          const deviceIPs = devices ? devices.ips : [];
+          const maxDevices = clientData.max_devices || 2;
+
           let message = `👤 <b>Информация о клиенте</b>\n\n`;
           message += `<b>Имя:</b> ${clientData.name}\n`;
           message += `<b>UUID:</b> <code>${clientData.uuid}</code>\n`;
@@ -3539,10 +3584,19 @@ bot.on("callback_query", async (query) => {
           message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
           message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
           message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB\n`;
-          message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
+          message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n\n`;
+          message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
+          
+          if (deviceCount > maxDevices) {
+            message += ` ⚠️ (превышен лимит!)`;
+          }
+          
+          if (deviceCount > 0) {
+            message += `\n<b>IP адреса:</b>\n${deviceIPs.map(ip => `   • ${ip}`).join('\n')}`;
+          }
           
           if (clientData.warnings_count > 0) {
-            message += `\n⚠️ <b>Предупреждения:</b> ${clientData.warnings_count}/3\n`;
+            message += `\n\n⚠️ <b>Предупреждения:</b> ${clientData.warnings_count}/3\n`;
             if (clientData.last_warning_date) {
               message += `<b>Последнее:</b> ${formatDate(clientData.last_warning_date)}\n`;
             }
