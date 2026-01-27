@@ -386,11 +386,12 @@ bot.onText(/\/list_clients/, async (msg) => {
       const status = client.status === "active" ? "✅" : "❌";
       const endDate = new Date(client.subscription_end);
       const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+      const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
       
       message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
       message += `   UUID: <code>${client.uuid}</code>\n`;
       message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
-      message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+      message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰' : ''}\n`;
       message += `   Трафик: ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n\n`;
     });
 
@@ -419,6 +420,7 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     const endDate = new Date(client.subscription_end);
     const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
     const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+    const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
     // Получаем информацию об активных устройствах
     const deviceInfo = await getActiveDevices();
@@ -433,7 +435,7 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n`;
     message += `<b>Email:</b> ${client.email || "не указан"}\n\n`;
     message += `<b>Статус:</b> ${status}\n`;
-    message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+    message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
     message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
     message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
@@ -1234,6 +1236,12 @@ bot.on("message", async (msg) => {
         
         if (expiringClients.length > 0) {
           message += `⏰ <b>Истекающие подписки (&lt; 7 дней):</b> ${expiringClients.length}\n`;
+          expiringClients.forEach(c => {
+            const endDate = new Date(c.subscription_end);
+            const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+            message += `   • ${c.name}: ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'}\n`;
+          });
+          message += `\n`;
         }
         
         if (highTrafficClients.length > 0) {
@@ -3458,6 +3466,7 @@ bot.on("callback_query", async (query) => {
           const endDate = new Date(clientData.subscription_end);
           const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
           const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+          const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
           let message = `👤 <b>Информация о клиенте</b>\n\n`;
           message += `<b>Имя:</b> ${clientData.name}\n`;
@@ -3465,7 +3474,7 @@ bot.on("callback_query", async (query) => {
           message += `<b>Telegram ID:</b> ${clientData.telegram_id || "не связан"}\n`;
           message += `<b>Email:</b> ${clientData.email || "не указан"}\n\n`;
           message += `<b>Статус:</b> ${status}\n`;
-          message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+          message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
           message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
           message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
           message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB\n`;
@@ -4059,6 +4068,7 @@ bot.on("callback_query", async (query) => {
         const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
         const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
         const maxDevices = client.max_devices || 2;
+        const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
 
         let message = `👤 <b>Информация о клиенте</b>\n\n`;
         message += `<b>Имя:</b> ${client.name}\n`;
@@ -4066,7 +4076,7 @@ bot.on("callback_query", async (query) => {
         message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n`;
         message += `<b>Email:</b> ${client.email || "не указан"}\n\n`;
         message += `<b>Статус:</b> ${status}\n`;
-        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
         message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
         message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
         message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
