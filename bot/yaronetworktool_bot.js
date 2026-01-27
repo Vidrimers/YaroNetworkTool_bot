@@ -1511,6 +1511,8 @@ bot.on("callback_query", async (query) => {
   const userId = query.from.id;
   const data = query.data;
 
+  console.log(`[CALLBACK] User ${userId} sent callback: "${data}"`);
+
   try {
     // Информация о безопасности
     if (data === "security_info") {
@@ -1814,7 +1816,10 @@ bot.on("callback_query", async (query) => {
         }])
       };
 
-      keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "info_cancel" }]);
+      keyboard.inline_keyboard.push([
+        { text: "🏠 Главное меню", callback_data: "back_to_main" },
+        { text: "❌ Отмена", callback_data: "info_cancel" }
+      ]);
 
       bot.sendMessage(chatId, message, {
         parse_mode: "HTML",
@@ -3435,6 +3440,31 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
+    // Главное меню
+    if (data === "back_to_main") {
+      console.log(`[BACK_TO_MAIN] User ${userId} clicked back_to_main`);
+      
+      bot.editMessageText("🏠 Возвращаюсь в главное меню...", {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+      });
+      
+      console.log(`[BACK_TO_MAIN] Sending keyboard to user ${userId}`);
+      
+      // Отправляем сообщение с keyboard
+      bot.sendMessage(chatId, "Выбери действие:", {
+        reply_markup: getMainKeyboard(isAdmin(userId))
+      }).then(() => {
+        console.log(`[BACK_TO_MAIN] Keyboard sent successfully to user ${userId}`);
+      }).catch((err) => {
+        console.error(`[BACK_TO_MAIN] Error sending keyboard:`, err);
+      });
+      
+      userStates.delete(userId);
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
     // Информация о клиенте
     else if (data.startsWith("info_")) {
       if (!isAdmin(userId)) {
@@ -3535,6 +3565,11 @@ bot.on("callback_query", async (query) => {
               { text: "🔄 Сбросить предупреждения", callback_data: `reset_warn_client` }
             ]);
           }
+
+          // Кнопка главного меню
+          keyboard.inline_keyboard.push([
+            { text: "🏠 Главное меню", callback_data: "back_to_main" }
+          ]);
 
           bot.editMessageText(message, {
             chat_id: chatId,
