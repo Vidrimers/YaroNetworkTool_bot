@@ -55,6 +55,11 @@ function formatDate(date) {
   return `${day}/${month}/${year}`;
 }
 
+// Вспомогательная функция для форматирования трафика (округление до 2 знаков)
+function formatTraffic(gb) {
+  return typeof gb === 'number' ? gb.toFixed(2) : '0.00';
+}
+
 // Состояния пользователей для интерактивных команд
 const userStates = new Map();
 
@@ -392,7 +397,7 @@ bot.onText(/\/list_clients/, async (msg) => {
       message += `   UUID: <code>${client.uuid}</code>\n`;
       message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
       message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰' : ''}\n`;
-      message += `   Трафик: ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n\n`;
+      message += `   Трафик: ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n\n`;
     });
 
     bot.sendMessage(chatId, message, { parse_mode: "HTML" });
@@ -438,7 +443,7 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
     message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
     message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
-    message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
+    message += `<b>Трафик:</b> ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n`;
     message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
     message += `<b>📱 Активных устройств:</b> ${deviceCount} / ${maxDevices}`;
     
@@ -606,7 +611,7 @@ bot.onText(/\/my_vpn/, async (msg) => {
     message += `<b>Статус:</b> ${status}\n`;
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
     message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-    message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+    message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
     message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
 
     if (daysLeft <= 7 && daysLeft > 0) {
@@ -1372,7 +1377,7 @@ bot.on("message", async (msg) => {
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-        message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
 
         if (daysLeft <= 7 && daysLeft > 0) {
           message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
@@ -3480,7 +3485,7 @@ bot.on("callback_query", async (query) => {
           message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
           message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
           message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
-          message += `<b>Трафик:</b> ${clientData.traffic_used_gb || 0}/${clientData.traffic_limit_gb} GB\n`;
+          message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB\n`;
           message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
           
           if (clientData.warnings_count > 0) {
@@ -4086,7 +4091,7 @@ bot.on("callback_query", async (query) => {
         message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n\n`;
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n\n`;
-        message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n\n`;
         message += `<b>📱 Лимит устройств:</b> ${maxDevices}\n`;
         message += `✅ Лимит успешно изменен!`;
 
@@ -4146,7 +4151,7 @@ bot.on("callback_query", async (query) => {
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
         message += `<b>Начало:</b> ${formatDate(client.subscription_start)}\n`;
         message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
-        message += `<b>Трафик:</b> ${client.traffic_used_gb || 0}/${client.traffic_limit_gb} GB\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n`;
         message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
         message += `<b>📱 Лимит устройств:</b> ${maxDevices}`;
 
