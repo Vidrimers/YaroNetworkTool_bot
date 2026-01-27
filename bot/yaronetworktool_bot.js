@@ -209,6 +209,12 @@ bot.onText(/\/help/, async (msg) => {
   const userId = msg.from.id;
 
   if (isAdmin(userId)) {
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔒 Безопасность и шифрование", callback_data: "security_info" }]
+      ]
+    };
+    
     bot.sendMessage(
       chatId,
       `📚 <b>Справка для администратора</b>\n\n` +
@@ -225,9 +231,18 @@ bot.onText(/\/help/, async (msg) => {
         `📊 Статистика - Статистика сервера\n` +
         `📝 Запросы - Запросы на продление\n` +
         `⚙️ Сервер - Статус сервера`,
-      { parse_mode: "HTML" }
+      { 
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      }
     );
   } else {
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔒 Безопасность и шифрование", callback_data: "security_info" }]
+      ]
+    };
+    
     bot.sendMessage(
       chatId,
       `📚 <b>Справка для клиента</b>\n\n` +
@@ -245,7 +260,10 @@ bot.onText(/\/help/, async (msg) => {
         `🔑 Запросить ключ - Продлить подписку\n` +
         `📝 Мои запросы - История запросов\n` +
         `📥 Скачать VPN - Инструкция по установке`,
-      { parse_mode: "HTML" }
+      { 
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      }
     );
   }
 });
@@ -1019,6 +1037,12 @@ bot.on("message", async (msg) => {
     if (text === "❓ Помощь") {
       // Вызываем /help напрямую
       if (isAdmin(userId)) {
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: "🔒 Безопасность и шифрование", callback_data: "security_info" }]
+          ]
+        };
+        
         bot.sendMessage(
           chatId,
           `📚 <b>Справка для администратора</b>\n\n` +
@@ -1035,9 +1059,18 @@ bot.on("message", async (msg) => {
             `📊 Статистика - Статистика сервера\n` +
             `📝 Запросы - Запросы на продление\n` +
             `⚙️ Сервер - Статус сервера`,
-          { parse_mode: "HTML" }
+          { 
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
         );
       } else {
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: "🔒 Безопасность и шифрование", callback_data: "security_info" }]
+          ]
+        };
+        
         bot.sendMessage(
           chatId,
           `📚 <b>Справка для клиента</b>\n\n` +
@@ -1458,6 +1491,36 @@ bot.on("callback_query", async (query) => {
   const data = query.data;
 
   try {
+    // Информация о безопасности
+    if (data === "security_info") {
+      bot.answerCallbackQuery(query.id);
+      
+      bot.sendMessage(
+        chatId,
+        `🔒 <b>Безопасность и шифрование</b>\n\n` +
+          `<b>VLESS + Reality + XHTTP</b>\n\n` +
+          `<b>Reality</b> - это и есть шифрование. Оно использует TLS 1.3 для шифрования всего трафика:\n\n` +
+          `🔐 <b>TLS 1.3 шифрование</b>\n` +
+          `Reality создает настоящее TLS соединение, которое выглядит как обычный HTTPS трафик к www.microsoft.com\n\n` +
+          `🎭 <b>Маскировка</b>\n` +
+          `Трафик неотличим от обычного HTTPS, поэтому DPI (Deep Packet Inspection) не может его заблокировать\n\n` +
+          `📡 <b>XHTTP</b>\n` +
+          `Это просто транспортный протокол поверх TLS, он не влияет на шифрование\n\n` +
+          `<b>✅ Что шифруется:</b>\n` +
+          `• Весь трафик между клиентом и сервером\n` +
+          `• DNS запросы (если используешь VPN для DNS)\n` +
+          `• Все данные приложений\n` +
+          `• URL и содержимое сайтов\n\n` +
+          `<b>❌ Что видит провайдер:</b>\n` +
+          `• Только то, что ты подключаешься к www.microsoft.com по HTTPS\n` +
+          `• Не видит реальные сайты, которые ты посещаешь\n` +
+          `• Не видит содержимое трафика\n\n` +
+          `<i>Reality - это один из самых современных и безопасных протоколов для обхода блокировок!</i>`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+    
     // Кнопка "Погнали" - открыть личный кабинет
     if (data === "start_vpn") {
       const client = await getClientByTelegramId(userId);
