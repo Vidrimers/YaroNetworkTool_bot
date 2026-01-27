@@ -397,7 +397,7 @@ bot.onText(/\/list_clients/, async (msg) => {
       message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
       message += `   UUID: <code>${client.uuid}</code>\n`;
       message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
-      message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰' : ''}\n`;
+      message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
       message += `   Трафик: ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n\n`;
     });
 
@@ -1163,11 +1163,12 @@ bot.on("message", async (msg) => {
             const status = client.status === "active" ? "✅" : "❌";
             const endDate = new Date(client.subscription_end);
             const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+            const isExpiringSoon = daysLeft > 0 && daysLeft <= 7;
             
             message += `${i + 1}. ${status} <b>${client.name}</b>\n`;
             message += `   UUID: <code>${client.uuid}</code>\n`;
             message += `   Telegram: ${client.telegram_id || "не связан"}\n`;
-            message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n\n`;
+            message += `   Подписка: ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n\n`;
           });
         }
 
