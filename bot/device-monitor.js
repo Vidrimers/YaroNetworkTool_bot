@@ -39,11 +39,23 @@ const apiClient = new APIClient();
 // Функция для парсинга логов X-Ray и подсчета активных устройств
 async function getActiveDevices() {
   try {
+    // Проверяем, запущен ли бот локально (Windows) или на сервере (Linux)
+    const isWindows = process.platform === 'win32';
+    
+    if (isWindows) {
+      // Локальный запуск на Windows - возвращаем пустой объект
+      // На сервере Linux все будет работать нормально
+      console.log('[getActiveDevices] Локальный запуск на Windows - мониторинг устройств недоступен');
+      console.log('[getActiveDevices] На сервере Linux мониторинг будет работать');
+      return {};
+    }
+    
+    // Запуск на сервере Linux - читаем логи напрямую
     const isRoot = process.getuid && process.getuid() === 0;
     const sudoPrefix = isRoot ? "" : "sudo ";
-
-    // Читаем последние 1000 строк лога (достаточно для анализа последних 5 минут)
     const { stdout } = await execAsync(`${sudoPrefix}tail -n 1000 ${XRAY_LOG_PATH}`);
+    
+    console.log(`[getActiveDevices] Прочитано строк лога: ${stdout.split('\n').length}`);
     
     const now = Date.now();
     const activeWindowMs = ACTIVE_WINDOW_MINUTES * 60 * 1000;
@@ -51,6 +63,8 @@ async function getActiveDevices() {
 
     // Парсим каждую строку лога
     const lines = stdout.split('\n');
+    let acceptedLines = 0;
+    let parsedLines = 0;
     
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -59,28 +73,48 @@ async function getActiveDevices() {
         // Формат лога X-Ray: timestamp [level] message
         // Ищем строки с accepted connection
         if (!line.includes('accepted')) continue;
+        acceptedLines++;
+        
+        // Логируем первые 3 строки для отладки
+        if (acceptedLines <= 3) {
+          console.log(`[getActiveDevices] Пример строки лога: ${line.substring(0, 200)}`);
+        }
 
         // Извлекаем UUID клиента (формат: email:uuid@domain или просто uuid)
         const uuidMatch = line.match(/email:([a-f0-9-]{36})|([a-f0-9-]{36})/i);
-        if (!uuidMatch) continue;
+        if (!uuidMatch) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] UUID не найден`);
+          continue;
+        }
 
         const uuid = uuidMatch[1] || uuidMatch[2];
 
         // Извлекаем IP адрес (формат: from IP:port)
         const ipMatch = line.match(/from\s+(\d+\.\d+\.\d+\.\d+)/);
-        if (!ipMatch) continue;
+        if (!ipMatch) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] IP не найден`);
+          continue;
+        }
 
         const ip = ipMatch[1];
 
         // Извлекаем timestamp (формат: 2026/01/26 12:00:00)
         const timeMatch = line.match(/(\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2})/);
-        if (!timeMatch) continue;
+        if (!timeMatch) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] Timestamp не найден`);
+          continue;
+        }
 
         const timestamp = new Date(timeMatch[1].replace(/\//g, '-')).getTime();
 
         // Проверяем, что подключение было в пределах активного окна
-        if (now - timestamp > activeWindowMs) continue;
+        if (now - timestamp > activeWindowMs) {
+          if (acceptedLines <= 3) console.log(`[getActiveDevices] Подключение слишком старое: ${new Date(timestamp).toISOString()}`);
+          continue;
+        }
 
+        parsedLines++;
+        
         // Добавляем устройство (IP) к клиенту
         if (!devicesByClient.has(uuid)) {
           devicesByClient.set(uuid, new Set());
@@ -92,6 +126,10 @@ async function getActiveDevices() {
         continue;
       }
     }
+    
+    console.log(`[getActiveDevices] Строк с 'accepted': ${acceptedLines}`);
+    console.log(`[getActiveDevices] Успешно распарсено: ${parsedLines}`);
+    console.log(`[getActiveDevices] Найдено клиентов с устройствами: ${devicesByClient.size}`);
 
     // Преобразуем Map в объект с количеством устройств
     const result = {};
@@ -100,12 +138,13 @@ async function getActiveDevices() {
         count: ips.size,
         ips: Array.from(ips)
       };
+      console.log(`[getActiveDevices] ${uuid}: ${ips.size} устройств (${Array.from(ips).join(', ')})`);
     }
 
     return result;
 
   } catch (error) {
-    console.error("Ошибка чтения логов X-Ray:", error.message);
+    console.error("[getActiveDevices] Ошибка чтения логов X-Ray:", error.message);
     return {};
   }
 }
