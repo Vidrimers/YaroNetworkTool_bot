@@ -146,7 +146,7 @@ class APIClient {
    * @returns {Promise<Object>} - Статистика трафика
    */
   async getClientTraffic(uuid) {
-    return this.request(`/api/clients/${uuid}/traffic`, "GET");
+    return this.request(`/api/stats/clients/${uuid}/traffic`, "GET");
   }
 
   /**
@@ -155,7 +155,7 @@ class APIClient {
    * @returns {Promise<Object>} - Статус клиента
    */
   async getClientStatus(uuid) {
-    return this.request(`/api/clients/${uuid}/status`, "GET");
+    return this.request(`/api/stats/clients/${uuid}/status`, "GET");
   }
 
   /**
@@ -164,7 +164,7 @@ class APIClient {
    * @returns {Promise<Object>} - Результат сброса
    */
   async resetClientTraffic(uuid) {
-    return this.request(`/api/clients/${uuid}/reset`, "POST");
+    return this.request(`/api/stats/clients/${uuid}/reset`, "POST");
   }
 
   /**

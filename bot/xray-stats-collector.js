@@ -19,7 +19,7 @@ dotenv.config({ path: join(__dirname, '../.env') });
 
 const execAsync = promisify(exec);
 
-const API_ENDPOINT = 'http://127.0.0.1:10085';
+const API_ENDPOINT = '127.0.0.1:10085';
 
 /**
  * Получить статистику пользователя через xray API
@@ -34,17 +34,22 @@ async function getUserStats(email) {
       downlink: 0
     };
     
-    // Парсим вывод
-    const lines = stdout.split('\n');
-    for (const line of lines) {
-      if (line.includes('uplink')) {
-        const match = line.match(/value:\s*(\d+)/);
-        if (match) stats.uplink = parseInt(match[1]);
+    // Парсим JSON вывод
+    try {
+      const data = JSON.parse(stdout);
+      if (data.stat && Array.isArray(data.stat)) {
+        for (const item of data.stat) {
+          if (item.name && item.name.includes('uplink')) {
+            stats.uplink = parseInt(item.value) || 0;
+          }
+          if (item.name && item.name.includes('downlink')) {
+            stats.downlink = parseInt(item.value) || 0;
+          }
+        }
       }
-      if (line.includes('downlink')) {
-        const match = line.match(/value:\s*(\d+)/);
-        if (match) stats.downlink = parseInt(match[1]);
-      }
+    } catch (parseError) {
+      console.error(`Ошибка парсинга JSON для ${email}:`, parseError.message);
+      return null;
     }
     
     return stats;
