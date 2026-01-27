@@ -453,6 +453,9 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     const keyboard = {
       inline_keyboard: [
         [
+          { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${uuid}` }
+        ],
+        [
           { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
         ]
       ]
@@ -3497,6 +3500,11 @@ bot.on("callback_query", async (query) => {
             inline_keyboard: []
           };
 
+          // Кнопка показать VLESS ссылку
+          keyboard.inline_keyboard.push([
+            { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${clientData.uuid}` }
+          ]);
+
           // Кнопка разблокировать если клиент заблокирован
           if (clientData.status === "blocked") {
             keyboard.inline_keyboard.push([
@@ -3924,6 +3932,65 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
+    // Показать VLESS ссылку
+    if (data.startsWith("show_vless_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("show_vless_", "");
+      
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+        
+        // Генерируем VLESS ссылку
+        let vlessLink = '';
+        try {
+          if (XRAY_PUBLIC_KEY && XRAY_SHORT_ID) {
+            vlessLink = generateVlessLink({
+              uuid: client.uuid,
+              serverIp: SERVER_IP,
+              port: XRAY_PORT,
+              publicKey: XRAY_PUBLIC_KEY,
+              shortId: XRAY_SHORT_ID,
+              sni: XRAY_SNI,
+              clientName: client.name
+            });
+          }
+        } catch (linkError) {
+          console.error('Ошибка генерации vless ссылки:', linkError);
+        }
+        
+        if (vlessLink) {
+          bot.answerCallbackQuery(query.id);
+          bot.sendMessage(
+            chatId,
+            `🔗 <b>VLESS ссылка для ${client.name}</b>\n\n` +
+              `<code>${vlessLink}</code>\n\n` +
+              `<i>Скопируй ссылку и отправь клиенту</i>`,
+            { parse_mode: "HTML" }
+          );
+        } else {
+          bot.answerCallbackQuery(query.id, {
+            text: "❌ Не удалось сгенерировать ссылку. Проверь настройки X-Ray.",
+            show_alert: true,
+          });
+        }
+      } catch (error) {
+        console.error("Ошибка показа VLESS ссылки:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
     // Изменить лимит устройств
     if (data.startsWith("change_device_limit_")) {
       if (!isAdmin(userId)) {
@@ -4085,6 +4152,9 @@ bot.on("callback_query", async (query) => {
 
         const keyboard = {
           inline_keyboard: [
+            [
+              { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${uuid}` }
+            ],
             [
               { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
             ]
