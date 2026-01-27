@@ -282,9 +282,10 @@ class APIClient {
    * @returns {Promise<Object>} - Результат одобрения
    */
   async approveExtensionRequest(id, days = null, adminTelegramId = null) {
-    const data = {};
+    const data = {
+      admin_telegram_id: adminTelegramId
+    };
     if (days) data.approved_days = days;
-    if (adminTelegramId) data.admin_telegram_id = adminTelegramId;
     return this.request(`/api/extension-requests/${id}/approve`, "POST", data);
   }
 
@@ -292,10 +293,14 @@ class APIClient {
    * Отклонить запрос на продление
    * @param {string} id - ID запроса
    * @param {string} reason - Причина отказа
+   * @param {number} adminTelegramId - Telegram ID админа
    * @returns {Promise<Object>} - Результат отказа
    */
-  async denyExtensionRequest(id, reason) {
-    return this.request(`/api/extension-requests/${id}/deny`, "POST", { reason });
+  async denyExtensionRequest(id, reason, adminTelegramId = null) {
+    return this.request(`/api/extension-requests/${id}/deny`, "POST", { 
+      reason,
+      admin_telegram_id: adminTelegramId
+    });
   }
 
   /**

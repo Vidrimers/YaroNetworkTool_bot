@@ -2574,9 +2574,6 @@ bot.on("callback_query", async (query) => {
             inline_keyboard: [
               [
                 { text: "🌐 Открыть 2ip.io", url: "https://2ip.io" }
-              ],
-              [
-                { text: "🔙 Назад", callback_data: "my_vpn" }
               ]
             ]
           }
@@ -2767,7 +2764,7 @@ bot.on("callback_query", async (query) => {
 
       try {
         // Отклоняем запрос через API
-        const response = await apiClient.denyExtensionRequest(requestId, "Отклонено администратором");
+        const response = await apiClient.denyExtensionRequest(requestId, "Отклонено администратором", userId);
         const request = response.request;
 
         bot.editMessageText(
