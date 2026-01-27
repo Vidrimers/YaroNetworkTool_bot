@@ -6,7 +6,16 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import APIClient from './utils/api-client.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Загружаем .env из родительской директории
+dotenv.config({ path: join(__dirname, '../.env') });
 
 const execAsync = promisify(exec);
 
