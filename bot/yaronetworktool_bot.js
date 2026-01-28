@@ -12,6 +12,7 @@ import QRCode from "qrcode";
 import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
 import { getActiveDevices } from "./device-monitor.js";
+import { showPaymentMethods, showSubscriptionPlans, handlePaymentPlan } from "./payments/payment-handler.js";
 
 const execAsync = promisify(exec);
 
@@ -89,7 +90,8 @@ function getMainKeyboard(isAdminUser = false) {
       keyboard: [
         [{ text: '📊 Мой VPN' }, { text: '🔗 Моя ссылка' }],
         [{ text: '🔑 Запросить ключ' }, { text: '📝 Мои запросы' }],
-        [{ text: '📥 Скачать VPN' }, { text: '❓ Помощь' }]
+        [{ text: '💳 Оплата' }, { text: '📥 Скачать VPN' }],
+        [{ text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -1161,6 +1163,12 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    if (text === "💳 Оплата") {
+      // Показываем методы оплаты
+      showPaymentMethods(bot, chatId);
+      return;
+    }
+
     if (isAdmin(userId)) {
       // Кнопки администратора
       if (text === "👶 Малютки") {
@@ -1573,6 +1581,237 @@ bot.on("callback_query", async (query) => {
   console.log(`[CALLBACK] User ${userId} sent callback: "${data}"`);
 
   try {
+    // ========================================================================
+    // ОБРАБОТЧИКИ ПЛАТЕЖЕЙ
+    // ========================================================================
+    
+    // Выбор метода оплаты
+    if (data.startsWith('payment_method_')) {
+      const method = data.replace('payment_method_', '');
+      bot.answerCallbackQuery(query.id);
+      
+      bot.editMessageText(
+        `💳 <b>Выбран метод оплаты</b>\n\nВыбери тарифный план:`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+      
+      showSubscriptionPlans(bot, chatId, method);
+      return;
+    }
+    
+    // Выбор тарифного плана
+    if (data.startsWith('payment_plan_')) {
+      const parts = data.replace('payment_plan_', '').split('_');
+      const method = parts[0];
+      const plan = parts.slice(1).join('_');
+      
+      bot.answerCallbackQuery(query.id);
+      
+      await handlePaymentPlan(bot, chatId, userId, method, plan);
+      return;
+    }
+    
+    // Назад к выбору методов
+    if (data === 'payment_back_to_methods') {
+      bot.answerCallbackQuery(query.id);
+      
+      bot.editMessageText(
+        `💳 <b>Выбери способ оплаты</b>`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+      
+      showPaymentMethods(bot, chatId);
+      return;
+    }
+    
+    // Отмена оплаты
+    if (data === 'payment_cancel') {
+      bot.answerCallbackQuery(query.id);
+      
+      bot.editMessageText(
+        `❌ Оплата отменена`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id
+        }
+      );
+      return;
+    }
+    
+    // Проверка оплаты Kaspa
+    if (data.startsWith('kaspa_paid_')) {
+      const paymentId = data.replace('kaspa_paid_', '');
+      
+      bot.answerCallbackQuery(query.id, {
+        text: '⏳ Проверяем платеж...',
+        show_alert: false
+      });
+      
+      bot.editMessageText(
+        `⏳ <b>Проверка платежа...</b>\n\n` +
+          `Ищем транзакцию в блокчейне Kaspa.\n` +
+          `Это может занять 1-2 минуты.`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+      
+      // Импортируем функцию проверки
+      const { checkKaspaPayment } = await import('./payments/kaspa.js');
+      
+      // Проверяем платеж
+      const result = await checkKaspaPayment(paymentId, apiClient, bot);
+      
+      if (result.success) {
+        bot.editMessageText(
+          `✅ <b>Платеж подтвержден!</b>\n\n` +
+            `Твоя подписка успешно продлена.\n\n` +
+            `<b>TX ID:</b> <code>${result.txId}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      } else {
+        bot.editMessageText(
+          `❌ <b>Платеж не найден</b>\n\n` +
+            `Транзакция еще не подтверждена в блокчейне.\n\n` +
+            `Попробуй еще раз через 1-2 минуты или обратись к администратору.\n\n` +
+            `<i>Ошибка: ${result.error}</i>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
+      return;
+    }
+    
+    // Проверка оплаты TON
+    if (data.startsWith('ton_paid_')) {
+      const paymentId = data.replace('ton_paid_', '');
+      
+      bot.answerCallbackQuery(query.id, {
+        text: '⏳ Проверяем платеж...',
+        show_alert: false
+      });
+      
+      bot.editMessageText(
+        `⏳ <b>Проверка платежа...</b>\n\n` +
+          `Ищем транзакцию в блокчейне TON.\n` +
+          `Это может занять 1-2 минуты.`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+      
+      // Импортируем функцию проверки
+      const { checkTONPayment } = await import('./payments/ton-connect.js');
+      
+      // Проверяем платеж
+      const result = await checkTONPayment(paymentId, apiClient, bot);
+      
+      if (result.success) {
+        bot.editMessageText(
+          `✅ <b>Платеж подтвержден!</b>\n\n` +
+            `Твоя подписка успешно продлена.\n\n` +
+            `<b>TX Hash:</b> <code>${result.txId}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      } else {
+        bot.editMessageText(
+          `❌ <b>Платеж не найден</b>\n\n` +
+            `Транзакция еще не подтверждена в блокчейне.\n\n` +
+            `Попробуй еще раз через 1-2 минуты или обратись к администратору.\n\n` +
+            `<i>Ошибка: ${result.error}</i>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
+      return;
+    }
+    
+    // Проверка оплаты USDT
+    if (data.startsWith('usdt_paid_')) {
+      const paymentId = data.replace('usdt_paid_', '');
+      
+      bot.answerCallbackQuery(query.id, {
+        text: '⏳ Проверяем платеж...',
+        show_alert: false
+      });
+      
+      bot.editMessageText(
+        `⏳ <b>Проверка платежа...</b>\n\n` +
+          `Ищем транзакцию USDT в сети TRON.\n` +
+          `Это может занять 1-2 минуты.`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: 'HTML'
+        }
+      );
+      
+      // Импортируем функцию проверки
+      const { checkUSDTPayment } = await import('./payments/usdt.js');
+      
+      // Проверяем платеж
+      const result = await checkUSDTPayment(paymentId, apiClient, bot);
+      
+      if (result.success) {
+        bot.editMessageText(
+          `✅ <b>Платеж подтвержден!</b>\n\n` +
+            `Твоя подписка успешно продлена.\n\n` +
+            `<b>TX ID:</b> <code>${result.txId}</code>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      } else {
+        bot.editMessageText(
+          `❌ <b>Платеж не найден</b>\n\n` +
+            `Транзакция еще не подтверждена в блокчейне.\n\n` +
+            `Попробуй еще раз через 1-2 минуты или обратись к администратору.\n\n` +
+            `<i>Ошибка: ${result.error}</i>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
+      return;
+    }
+    
+    // ========================================================================
+    // ОСТАЛЬНЫЕ ОБРАБОТЧИКИ
+    // ========================================================================
+    
     // Информация о безопасности
     if (data === "security_info") {
       bot.answerCallbackQuery(query.id);
@@ -4354,6 +4593,65 @@ bot.on("callback_query", async (query) => {
       text: "❌ Произошла ошибка",
       show_alert: true,
     });
+  }
+});
+
+// ============================================================================
+// ОБРАБОТКА ПЛАТЕЖЕЙ
+// ============================================================================
+
+// Обработка pre-checkout запроса (перед оплатой)
+bot.on('pre_checkout_query', async (query) => {
+  try {
+    // Всегда подтверждаем платеж
+    await bot.answerPreCheckoutQuery(query.id, true);
+  } catch (error) {
+    console.error('[Payment] Ошибка pre-checkout:', error);
+    await bot.answerPreCheckoutQuery(query.id, false, {
+      error_message: 'Произошла ошибка. Попробуй позже.'
+    });
+  }
+});
+
+// Обработка успешной оплаты
+bot.on('message', async (msg) => {
+  if (msg.successful_payment) {
+    const chatId = msg.chat.id;
+    
+    try {
+      const payload = JSON.parse(msg.successful_payment.invoice_payload);
+      const { userId, plan, method } = payload;
+
+      console.log(`[Payment] Успешная оплата: пользователь ${userId}, план ${plan}, метод ${method}`);
+
+      // Получаем данные плана
+      const { SUBSCRIPTION_PLANS } = await import('./payments/payment-handler.js');
+      const planData = SUBSCRIPTION_PLANS[plan];
+
+      if (!planData) {
+        throw new Error('Неверный план подписки');
+      }
+
+      // Продлеваем подписку через API
+      await apiClient.extendSubscription(userId, planData.days);
+
+      bot.sendMessage(
+        chatId,
+        `✅ <b>Оплата прошла успешно!</b>\n\n` +
+          `Твоя подписка продлена на ${planData.days} дней.\n` +
+          `Спасибо за оплату! 🎉`,
+        { parse_mode: 'HTML' }
+      );
+
+    } catch (error) {
+      console.error('[Payment] Ошибка обработки платежа:', error);
+      bot.sendMessage(
+        chatId,
+        `⚠️ Оплата получена, но возникла ошибка при продлении подписки.\n\n` +
+          `Обратись к администратору: @yaronetwork`,
+        { parse_mode: 'HTML' }
+      );
+    }
   }
 });
 

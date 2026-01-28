@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node bot/yaronetworktool_bot.js",
     "dev": "nodemon bot/yaronetworktool_bot.js",
+    "webhook": "node bot/start-yumoney-webhook.js",
+    "webhook:dev": "nodemon bot/start-yumoney-webhook.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -23,7 +25,8 @@
     "node-telegram-bot-api": "^0.66.0",
     "dotenv": "^16.4.5",
     "ssh2": "^1.15.0",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
