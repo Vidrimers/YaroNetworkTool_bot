@@ -80,7 +80,8 @@ function getMainKeyboard(isAdminUser = false) {
       keyboard: [
         [{ text: '👶 Малютки' }, { text: '📊 Статистика' }],
         [{ text: '📝 Запросы' }, { text: '⚙️ Сервер' }],
-        [{ text: '🔧 Xray' }, { text: '❓ Помощь' }]
+        [{ text: '🔧 Xray' }, { text: '📊 Мой VPN' }],
+        [{ text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -1102,7 +1103,9 @@ bot.on("message", async (msg) => {
             `👶 Малютки - Управление клиентами\n` +
             `📊 Статистика - Статистика сервера\n` +
             `📝 Запросы - Запросы на продление\n` +
-            `⚙️ Сервер - Статус сервера`,
+            `⚙️ Сервер - Статус сервера\n` +
+            `🔧 Xray - Управление Xray сервисом\n` +
+            `📊 Мой VPN - Моя статистика VPN`,
           { 
             parse_mode: "HTML",
             reply_markup: keyboard
@@ -1405,6 +1408,77 @@ bot.on("message", async (msg) => {
             reply_markup: keyboard
           }
         );
+      } else if (text === "📊 Мой VPN") {
+        // Админ тоже может быть клиентом
+        const client = await getClientByTelegramId(userId);
+
+        if (!client) {
+          bot.sendMessage(chatId, "❌ У тебя нет VPN аккаунта");
+          return;
+        }
+
+        const response = await apiClient.getClient(client.uuid);
+        const clientData = response.client;
+
+        // Получаем общий трафик за период
+        let totalTrafficData = null;
+        try {
+          const trafficResponse = await apiClient.getClientTotalTraffic(client.uuid);
+          totalTrafficData = trafficResponse.traffic;
+        } catch (error) {
+          // Игнорируем ошибку если endpoint не найден (старая версия API)
+          if (!error.message.includes('Not Found')) {
+            console.error("Ошибка получения общего трафика:", error);
+          }
+        }
+
+        const endDate = new Date(clientData.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+        const trafficPercent = Math.round((clientData.traffic_used_gb / clientData.traffic_limit_gb) * 100);
+
+        // Получаем информацию об активных устройствах
+        const deviceInfo = await getActiveDevices();
+        const devices = deviceInfo[clientData.uuid];
+        const deviceCount = devices ? devices.count : 0;
+        const maxDevices = clientData.max_devices || 2;
+
+        let message = `📊 <b>Моя статистика VPN</b>\n\n`;
+        message += `👤 <b>Имя:</b> ${clientData.name}\n`;
+        message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
+        message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        
+        // Добавляем общий трафик за месяц
+        if (totalTrafficData && totalTrafficData.total_gb > 0) {
+          message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
+        }
+        
+        message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
+        
+        if (deviceCount > maxDevices) {
+          message += ` ⚠️ (превышен лимит!)`;
+        }
+        message += `\n`;
+
+        if (daysLeft <= 7 && daysLeft > 0) {
+          message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
+        }
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 Проверка VPN", callback_data: "check_vpn_status" }
+            ]
+          ]
+        };
+
+        bot.sendMessage(chatId, message, { 
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
       }
     } else {
       // Кнопки клиента
