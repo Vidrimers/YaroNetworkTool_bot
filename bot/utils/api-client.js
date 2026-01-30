@@ -150,6 +150,15 @@ class APIClient {
   }
 
   /**
+   * Получить общий трафик клиента за период (с даты сброса)
+   * @param {string} uuid - UUID клиента
+   * @returns {Promise<Object>} - Общий трафик за период
+   */
+  async getClientTotalTraffic(uuid) {
+    return this.request(`/api/clients/${uuid}/traffic-total`, "GET");
+  }
+
+  /**
    * Получить статус клиента
    * @param {string} uuid - UUID клиента
    * @returns {Promise<Object>} - Статус клиента

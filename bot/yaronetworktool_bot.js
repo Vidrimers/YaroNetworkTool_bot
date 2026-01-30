@@ -616,6 +616,18 @@ bot.onText(/\/my_vpn/, async (msg) => {
     const response = await apiClient.getClient(client.uuid);
     const clientData = response.client;
 
+    // Получаем общий трафик за период
+    let totalTrafficData = null;
+    try {
+      const trafficResponse = await apiClient.getClientTotalTraffic(client.uuid);
+      totalTrafficData = trafficResponse.traffic;
+    } catch (error) {
+      // Игнорируем ошибку если endpoint не найден (старая версия API)
+      if (!error.message.includes('Not Found')) {
+        console.error("Ошибка получения общего трафика:", error);
+      }
+    }
+
     const endDate = new Date(clientData.subscription_end);
     const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
     const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
@@ -628,6 +640,12 @@ bot.onText(/\/my_vpn/, async (msg) => {
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
     message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+    
+    // Добавляем общий трафик за месяц
+    if (totalTrafficData && totalTrafficData.total_gb > 0) {
+      message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
+    }
+    
     message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n`;
 
     if (daysLeft <= 7 && daysLeft > 0) {
@@ -1405,6 +1423,18 @@ bot.on("message", async (msg) => {
         const response = await apiClient.getClient(client.uuid);
         const clientData = response.client;
 
+        // Получаем общий трафик за период
+        let totalTrafficData = null;
+        try {
+          const trafficResponse = await apiClient.getClientTotalTraffic(client.uuid);
+          totalTrafficData = trafficResponse.traffic;
+        } catch (error) {
+          // Игнорируем ошибку если endpoint не найден (старая версия API)
+          if (!error.message.includes('Not Found')) {
+            console.error("Ошибка получения общего трафика:", error);
+          }
+        }
+
         const endDate = new Date(clientData.subscription_end);
         const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
         const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
@@ -1423,6 +1453,12 @@ bot.on("message", async (msg) => {
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
         message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        
+        // Добавляем общий трафик за месяц
+        if (totalTrafficData && totalTrafficData.total_gb > 0) {
+          message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
+        }
+        
         message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
         
         if (deviceCount > maxDevices) {
@@ -2860,16 +2896,14 @@ bot.on("callback_query", async (query) => {
       try {
         const checkMessage = 
           `🔍 <b>Как проверить VPN</b>\n\n` +
-          `<b>Способ 1: Через браузер</b>\n` +
+          `<b>Проверка через браузер:</b>\n` +
           `1. Открой сайт: <code>2ip.io</code>\n` +
           `2. Посмотри свой IP адрес\n\n` +
           `✅ <b>Если VPN подключен:</b>\n` +
           `IP: <code>${SERVER_IP}</code>\n` +
           `Страна: Нидерланды 🇳🇱\n\n` +
           `⚠️ <b>Если VPN не подключен:</b>\n` +
-          `Увидишь свой реальный IP и страну\n\n` +
-          `<b>Способ 2: Команда боту</b>\n` +
-          `Отправь боту команду /checkip и я помогу проверить`;
+          `Увидишь свой реальный IP и страну`;
 
         bot.editMessageText(checkMessage, {
           chat_id: chatId,
