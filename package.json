@@ -7,8 +7,6 @@
   "scripts": {
     "start": "node bot/yaronetworktool_bot.js",
     "dev": "nodemon bot/yaronetworktool_bot.js",
-    "webhook": "node bot/start-yumoney-webhook.js",
-    "webhook:dev": "nodemon bot/start-yumoney-webhook.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

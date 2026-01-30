@@ -7,7 +7,6 @@ import { handleTelegramStars } from './telegram-stars.js';
 import { handleTONConnect } from './ton-connect.js';
 import { handleUSDT } from './usdt.js';
 import { handleKaspa } from './kaspa.js';
-import { handleYuMoney } from './yumoney.js';
 
 // Тарифные планы
 export const SUBSCRIPTION_PLANS = {
@@ -48,7 +47,7 @@ export function showPaymentMethods(bot, chatId) {
         { text: '🔷 Kaspa', callback_data: 'payment_method_kaspa' }
       ],
       [
-        { text: '💳 ЮMoney', callback_data: 'payment_method_yumoney' }
+        { text: '💬 Написать админу', url: 'https://t.me/JaroCobain' }
       ],
       [
         { text: '❌ Отмена', callback_data: 'payment_cancel' }
@@ -63,8 +62,8 @@ export function showPaymentMethods(bot, chatId) {
       `⭐ <b>Telegram Stars</b> - встроенная валюта Telegram\n` +
       `💎 <b>TON Connect</b> - криптовалюта TON\n` +
       `💵 <b>USDT</b> - стейблкоин (TRC-20)\n` +
-      `🔷 <b>Kaspa</b> - криптовалюта Kaspa\n` +
-      `💳 <b>ЮMoney</b> - банковские карты, СБП`,
+      `🔷 <b>Kaspa</b> - криптовалюта Kaspa\n\n` +
+      `💬 <b>Написать админу</b> - другие способы оплаты`,
     {
       parse_mode: 'HTML',
       reply_markup: keyboard
@@ -78,8 +77,7 @@ export function showSubscriptionPlans(bot, chatId, paymentMethod) {
     stars: '⭐ Telegram Stars',
     ton: '💎 TON Connect',
     usdt: '💵 USDT',
-    kaspa: '🔷 Kaspa',
-    yumoney: '💳 ЮMoney'
+    kaspa: '🔷 Kaspa'
   };
 
   const keyboard = {
@@ -120,8 +118,6 @@ function getPriceForMethod(plan, method) {
       return `${planData.price_usdt} USDT`;
     case 'kaspa':
       return `${planData.price_kaspa} KAS`;
-    case 'yumoney':
-      return `${planData.price_rub} ₽`;
     default:
       return `${planData.price_rub} ₽`;
   }
@@ -149,9 +145,6 @@ export async function handlePaymentPlan(bot, chatId, userId, paymentMethod, plan
       break;
     case 'kaspa':
       await handleKaspa(bot, chatId, userId, plan, planData);
-      break;
-    case 'yumoney':
-      await handleYuMoney(bot, chatId, userId, plan, planData);
       break;
     default:
       bot.sendMessage(chatId, '❌ Неизвестный метод оплаты');
