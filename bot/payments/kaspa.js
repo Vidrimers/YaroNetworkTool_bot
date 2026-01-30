@@ -129,6 +129,16 @@ export async function checkKaspaPayment(paymentId, apiClient, bot) {
       payment.status = 'completed';
       payment.txId = matchingTx.transaction_id;
 
+      // Получаем информацию о клиенте для уведомления админа
+      let clientName = `ID: ${payment.userId}`;
+      try {
+        const clientsResponse = await apiClient.getClients();
+        const client = clientsResponse.clients?.find(c => c.telegram_id === payment.userId);
+        if (client) clientName = client.name;
+      } catch (err) {
+        console.error('[Kaspa] Ошибка получения имени клиента:', err);
+      }
+
       // Уведомляем пользователя
       try {
         await bot.sendMessage(
@@ -141,6 +151,27 @@ export async function checkKaspaPayment(paymentId, apiClient, bot) {
         );
       } catch (err) {
         console.error('[Kaspa] Не удалось отправить уведомление пользователю:', err);
+      }
+
+      // Уведомляем админа
+      try {
+        const TELEGRAM_ADMIN_ID = parseInt(process.env.TELEGRAM_ADMIN_ID);
+        if (TELEGRAM_ADMIN_ID) {
+          await bot.sendMessage(
+            TELEGRAM_ADMIN_ID,
+            `💰 <b>Новая оплата!</b>\n\n` +
+              `👤 <b>Клиент:</b> ${clientName}\n` +
+              `🔷 <b>Метод:</b> Kaspa\n` +
+              `📦 <b>Тариф:</b> ${planData.name}\n` +
+              `💵 <b>Сумма:</b> ${planData.price_kaspa} KAS\n` +
+              `📅 <b>Продлено на:</b> ${planData.days} дней\n` +
+              `🕐 <b>Время:</b> ${new Date().toLocaleString('ru-RU')}\n` +
+              `🔗 <b>TX:</b> <code>${matchingTx.transaction_id}</code>`,
+            { parse_mode: 'HTML' }
+          );
+        }
+      } catch (err) {
+        console.error('[Kaspa] Ошибка отправки уведомления админу:', err);
       }
 
       return { success: true, txId: matchingTx.transaction_id };

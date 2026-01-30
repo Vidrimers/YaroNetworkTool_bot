@@ -4820,9 +4820,14 @@ bot.on('message', async (msg) => {
         throw new Error('Неверный план подписки');
       }
 
+      // Получаем информацию о клиенте
+      const client = await getClientByTelegramId(userId);
+      const clientName = client ? client.name : `ID: ${userId}`;
+
       // Продлеваем подписку через API
       await apiClient.extendSubscription(userId, planData.days);
 
+      // Уведомляем клиента
       bot.sendMessage(
         chatId,
         `✅ <b>Оплата прошла успешно!</b>\n\n` +
@@ -4830,6 +4835,39 @@ bot.on('message', async (msg) => {
           `Спасибо за оплату! 🎉`,
         { parse_mode: 'HTML' }
       );
+
+      // Уведомляем админа
+      const methodEmoji = {
+        stars: '⭐',
+        ton: '💎',
+        usdt: '💵',
+        kaspa: '🔷'
+      };
+      
+      const methodName = {
+        stars: 'Telegram Stars',
+        ton: 'TON',
+        usdt: 'USDT',
+        kaspa: 'Kaspa'
+      };
+
+      const price = method === 'stars' ? `${planData.price_stars} ⭐` :
+                    method === 'ton' ? `${planData.price_ton} TON` :
+                    method === 'usdt' ? `${planData.price_usdt} USDT` :
+                    method === 'kaspa' ? `${planData.price_kaspa} KAS` : 
+                    `${planData.price_rub} ₽`;
+
+      bot.sendMessage(
+        TELEGRAM_ADMIN_ID,
+        `💰 <b>Новая оплата!</b>\n\n` +
+          `👤 <b>Клиент:</b> ${clientName}\n` +
+          `${methodEmoji[method] || '💳'} <b>Метод:</b> ${methodName[method] || method}\n` +
+          `📦 <b>Тариф:</b> ${planData.name}\n` +
+          `💵 <b>Сумма:</b> ${price}\n` +
+          `📅 <b>Продлено на:</b> ${planData.days} дней\n` +
+          `🕐 <b>Время:</b> ${new Date().toLocaleString('ru-RU')}`,
+        { parse_mode: 'HTML' }
+      ).catch(err => console.error('[Payment] Ошибка отправки уведомления админу:', err));
 
     } catch (error) {
       console.error('[Payment] Ошибка обработки платежа:', error);
