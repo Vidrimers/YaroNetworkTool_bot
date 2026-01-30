@@ -1266,6 +1266,23 @@ bot.on("message", async (msg) => {
         const blockedClients = clients.filter(c => c.status === "blocked");
         const totalTraffic = clients.reduce((sum, c) => sum + (c.traffic_used_gb || 0), 0);
         
+        // Получаем статистику трафика за день/неделю/месяц для всех клиентов
+        let dayTraffic = 0;
+        let weekTraffic = 0;
+        let monthTraffic = 0;
+        
+        for (const client of clients) {
+          try {
+            const statsResponse = await apiClient.getClientTrafficStats(client.uuid);
+            const stats = statsResponse.stats;
+            dayTraffic += stats.day || 0;
+            weekTraffic += stats.week || 0;
+            monthTraffic += stats.month || 0;
+          } catch (err) {
+            console.error(`Ошибка получения статистики для ${client.uuid}:`, err);
+          }
+        }
+        
         // Топ 5 клиентов по трафику
         const topClients = [...clients]
           .sort((a, b) => (b.traffic_used_gb || 0) - (a.traffic_used_gb || 0))
@@ -1291,7 +1308,10 @@ bot.on("message", async (msg) => {
         message += `   Активных: ${activeClients.length}\n`;
         message += `   Заблокированных: ${blockedClients.length}\n\n`;
         message += `📈 <b>Трафик:</b>\n`;
-        message += `   Всего использовано: ${totalTraffic.toFixed(2)} GB\n`;
+        message += `   За день: ${dayTraffic.toFixed(2)} GB\n`;
+        message += `   За неделю: ${weekTraffic.toFixed(2)} GB\n`;
+        message += `   За месяц: ${monthTraffic.toFixed(2)} GB\n`;
+        message += `   Текущий (с сброса): ${totalTraffic.toFixed(2)} GB\n`;
         message += `   Средний на клиента: ${(totalTraffic / clients.length || 0).toFixed(2)} GB\n\n`;
         
         if (topClients.length > 0) {
@@ -3989,6 +4009,15 @@ bot.on("callback_query", async (query) => {
           const response = await apiClient.getClient(client.uuid);
           const clientData = response.client;
 
+          // Получаем статистику трафика за день/неделю/месяц
+          let trafficStats = null;
+          try {
+            const statsResponse = await apiClient.getClientTrafficStats(client.uuid);
+            trafficStats = statsResponse.stats;
+          } catch (err) {
+            console.error("Ошибка получения статистики трафика:", err);
+          }
+
           const endDate = new Date(clientData.subscription_end);
           const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
           const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
@@ -4010,7 +4039,15 @@ bot.on("callback_query", async (query) => {
           message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
           message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
           message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
-          message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB\n`;
+          message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB\n`;
+          
+          // Добавляем статистику трафика
+          if (trafficStats) {
+            message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
+            message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
+            message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+          }
+          
           message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n\n`;
           message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
           
