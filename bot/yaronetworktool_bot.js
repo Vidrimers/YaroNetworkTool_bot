@@ -629,6 +629,17 @@ bot.onText(/\/my_vpn/, async (msg) => {
       }
     }
 
+    // Получаем статистику трафика за день/неделю/месяц
+    let trafficStats = null;
+    try {
+      const statsResponse = await apiClient.getClientTrafficStats(client.uuid);
+      trafficStats = statsResponse.stats;
+    } catch (error) {
+      if (!error.message.includes('Not Found')) {
+        console.error("Ошибка получения статистики трафика:", error);
+      }
+    }
+
     const endDate = new Date(clientData.subscription_end);
     const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
     const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
@@ -640,10 +651,17 @@ bot.onText(/\/my_vpn/, async (msg) => {
     message += `<b>Статус:</b> ${status}\n`;
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
     message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-    message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+    message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
     
-    // Добавляем общий трафик за месяц
-    if (totalTrafficData && totalTrafficData.total_gb > 0) {
+    // Добавляем статистику трафика
+    if (trafficStats) {
+      message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
+      message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
+      message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+    }
+    
+    // Добавляем общий трафик за месяц (если есть)
+    if (totalTrafficData && totalTrafficData.total_gb > 0 && !trafficStats) {
       message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
     }
     
@@ -1531,6 +1549,17 @@ bot.on("message", async (msg) => {
           }
         }
 
+        // Получаем статистику трафика за день/неделю/месяц
+        let trafficStats = null;
+        try {
+          const statsResponse = await apiClient.getClientTrafficStats(client.uuid);
+          trafficStats = statsResponse.stats;
+        } catch (error) {
+          if (!error.message.includes('Not Found')) {
+            console.error("Ошибка получения статистики трафика:", error);
+          }
+        }
+
         const endDate = new Date(clientData.subscription_end);
         const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
         const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
@@ -1548,10 +1577,17 @@ bot.on("message", async (msg) => {
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-        message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
         
-        // Добавляем общий трафик за месяц
-        if (totalTrafficData && totalTrafficData.total_gb > 0) {
+        // Добавляем статистику трафика
+        if (trafficStats) {
+          message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
+          message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
+          message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+        }
+        
+        // Добавляем общий трафик за месяц (если нет статистики)
+        if (totalTrafficData && totalTrafficData.total_gb > 0 && !trafficStats) {
           message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
         }
         
