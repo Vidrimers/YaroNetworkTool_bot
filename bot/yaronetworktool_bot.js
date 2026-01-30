@@ -1409,21 +1409,23 @@ bot.on("message", async (msg) => {
           }
         );
       } else if (text === "📊 Мой VPN") {
-        // Админ тоже может быть клиентом
-        const client = await getClientByTelegramId(userId);
+        // Для админа ищем клиента с именем "Админ"
+        const response = await apiClient.getClients();
+        const clients = response.clients || [];
+        const adminClient = clients.find(c => c.name === "Админ");
 
-        if (!client) {
-          bot.sendMessage(chatId, "❌ У тебя нет VPN аккаунта");
+        if (!adminClient) {
+          bot.sendMessage(chatId, "❌ Клиент 'Админ' не найден в системе");
           return;
         }
 
-        const response = await apiClient.getClient(client.uuid);
-        const clientData = response.client;
+        const clientResponse = await apiClient.getClient(adminClient.uuid);
+        const clientData = clientResponse.client;
 
         // Получаем общий трафик за период
         let totalTrafficData = null;
         try {
-          const trafficResponse = await apiClient.getClientTotalTraffic(client.uuid);
+          const trafficResponse = await apiClient.getClientTotalTraffic(adminClient.uuid);
           totalTrafficData = trafficResponse.traffic;
         } catch (error) {
           // Игнорируем ошибку если endpoint не найден (старая версия API)
@@ -2235,6 +2237,84 @@ bot.on("callback_query", async (query) => {
       });
 
       bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Просмотр статистики VPN клиента (для админа)
+    if (data.startsWith("admin_view_vpn_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("admin_view_vpn_", "");
+      
+      try {
+        const response = await apiClient.getClient(uuid);
+        const clientData = response.client;
+
+        // Получаем общий трафик за период
+        let totalTrafficData = null;
+        try {
+          const trafficResponse = await apiClient.getClientTotalTraffic(uuid);
+          totalTrafficData = trafficResponse.traffic;
+        } catch (error) {
+          // Игнорируем ошибку если endpoint не найден (старая версия API)
+          if (!error.message.includes('Not Found')) {
+            console.error("Ошибка получения общего трафика:", error);
+          }
+        }
+
+        const endDate = new Date(clientData.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = clientData.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+        const trafficPercent = Math.round((clientData.traffic_used_gb / clientData.traffic_limit_gb) * 100);
+
+        // Получаем информацию об активных устройствах
+        const deviceInfo = await getActiveDevices();
+        const devices = deviceInfo[clientData.uuid];
+        const deviceCount = devices ? devices.count : 0;
+        const maxDevices = clientData.max_devices || 2;
+
+        let message = `📊 <b>Статистика VPN: ${clientData.name}</b>\n\n`;
+        message += `👤 <b>Имя:</b> ${clientData.name}\n`;
+        message += `🆔 <b>UUID:</b> <code>${clientData.uuid}</code>\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
+        message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
+        
+        // Добавляем общий трафик за месяц
+        if (totalTrafficData && totalTrafficData.total_gb > 0) {
+          message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
+        }
+        
+        message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
+        
+        if (deviceCount > maxDevices) {
+          message += ` ⚠️ (превышен лимит!)`;
+        }
+        message += `\n`;
+
+        if (daysLeft <= 7 && daysLeft > 0) {
+          message += `\n⚠️ <b>Внимание:</b> Подписка истекает через ${daysLeft} дней!`;
+        }
+
+        bot.sendMessage(chatId, message, { 
+          parse_mode: "HTML"
+        });
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка получения статистики клиента:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка получения данных",
+          show_alert: true,
+        });
+      }
       return;
     }
 
