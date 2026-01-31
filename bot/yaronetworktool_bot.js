@@ -1841,7 +1841,7 @@ bot.on("callback_query", async (query) => {
         }
       );
       
-      showSubscriptionPlans(bot, chatId, method);
+      await showSubscriptionPlans(bot, chatId, userId, method, apiClient);
       return;
     }
     

@@ -72,7 +72,7 @@ export function showPaymentMethods(bot, chatId) {
 }
 
 // Показать тарифные планы для выбранного метода
-export function showSubscriptionPlans(bot, chatId, paymentMethod) {
+export async function showSubscriptionPlans(bot, chatId, userId, paymentMethod, apiClient = null) {
   const methodNames = {
     stars: '⭐ Telegram Stars',
     ton: '💎 TON Connect',
@@ -80,13 +80,27 @@ export function showSubscriptionPlans(bot, chatId, paymentMethod) {
     kaspa: '🔷 Kaspa'
   };
 
+  // Получаем индивидуальную цену клиента для Kaspa (только для 1 месяца)
+  let customPrice = null;
+  if (paymentMethod === 'kaspa' && apiClient) {
+    try {
+      const clientsResponse = await apiClient.getClients();
+      const client = clientsResponse.clients?.find(c => c.telegram_id === userId);
+      if (client && client.custom_price_kaspa !== null && client.custom_price_kaspa !== undefined) {
+        customPrice = client.custom_price_kaspa;
+      }
+    } catch (error) {
+      console.error('Ошибка получения индивидуальной цены:', error);
+    }
+  }
+
   const keyboard = {
     inline_keyboard: [
       [
-        { text: `1 месяц - ${getPriceForMethod('1_month', paymentMethod)}`, callback_data: `payment_plan_${paymentMethod}_1_month` }
+        { text: `1 месяц - ${getPriceForMethod('1_month', paymentMethod, customPrice)}`, callback_data: `payment_plan_${paymentMethod}_1_month` }
       ],
       [
-        { text: `3 месяца - ${getPriceForMethod('3_months', paymentMethod)}`, callback_data: `payment_plan_${paymentMethod}_3_months` }
+        { text: `3 месяца - ${getPriceForMethod('3_months', paymentMethod, null)}`, callback_data: `payment_plan_${paymentMethod}_3_months` }
       ],
       [
         { text: '◀️ Назад', callback_data: 'payment_back_to_methods' }
@@ -106,8 +120,13 @@ export function showSubscriptionPlans(bot, chatId, paymentMethod) {
 }
 
 // Получить цену для метода оплаты
-function getPriceForMethod(plan, method) {
+function getPriceForMethod(plan, method, customPrice = null) {
   const planData = SUBSCRIPTION_PLANS[plan];
+  
+  // Индивидуальная цена применяется ТОЛЬКО для 1 месяца и Kaspa
+  if (method === 'kaspa' && customPrice !== null && plan === '1_month') {
+    return `${customPrice} KAS`;
+  }
   
   switch (method) {
     case 'stars':

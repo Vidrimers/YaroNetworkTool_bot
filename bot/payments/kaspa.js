@@ -21,8 +21,8 @@ export async function handleKaspa(bot, chatId, userId, plan, planData, customPri
     // Генерируем уникальный ID платежа
     const paymentId = `vpn_${userId}_${plan}_${Date.now()}`;
     
-    // Используем индивидуальную цену, если она задана
-    const finalPrice = customPrice !== null ? customPrice : planData.price_kaspa;
+    // Используем индивидуальную цену ТОЛЬКО для тарифа "1 месяц"
+    const finalPrice = (customPrice !== null && plan === '1_month') ? customPrice : planData.price_kaspa;
     
     // Сохраняем ожидаемый платеж (можно в БД или в памяти)
     // Для простоты пока просто показываем адрес
@@ -94,24 +94,68 @@ export async function checkKaspaPayment(paymentId, apiClient, bot) {
       return { success: false, error: 'Payment already completed' };
     }
 
-    // Проверяем транзакции через Kaspa API
-    const KASPA_API_URL = process.env.KASPA_API_URL || 'https://api.kaspa.org';
-    const response = await fetch(`${KASPA_API_URL}/addresses/${payment.address}/transactions`);
+    // Проверяем транзакции через Kaspa Explorer API
+    // Используем публичный API kaspa.org
+    const explorerUrl = `https://api.kaspa.org/addresses/${payment.address}/full-transactions?limit=50&resolve_previous_outpoints=light`;
+    
+    console.log(`[Kaspa] Проверка платежа: ${paymentId}`);
+    console.log(`[Kaspa] Адрес: ${payment.address}`);
+    console.log(`[Kaspa] Ожидаемая сумма: ${payment.amount} KAS`);
+    console.log(`[Kaspa] URL запроса: ${explorerUrl}`);
+    
+    const response = await fetch(explorerUrl);
     
     if (!response.ok) {
-      throw new Error('Failed to fetch Kaspa transactions');
+      const errorText = await response.text();
+      console.error(`[Kaspa] API ошибка: ${response.status} ${response.statusText}`);
+      console.error(`[Kaspa] Ответ: ${errorText}`);
+      throw new Error(`Kaspa API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const transactions = data.transactions || [];
+    console.log(`[Kaspa] Получен ответ от API, тип данных: ${typeof data}`);
+    
+    // API возвращает массив транзакций напрямую
+    const transactions = Array.isArray(data) ? data : [];
+    console.log(`[Kaspa] Найдено транзакций: ${transactions.length}`);
 
     // Ищем транзакцию с нужной суммой после timestamp платежа
     const matchingTx = transactions.find(tx => {
-      const txTime = new Date(tx.block_time).getTime();
-      const txAmount = parseFloat(tx.outputs.find(o => o.script_public_key_address === payment.address)?.amount || 0) / 100000000; // Kaspa использует сомпи (1 KAS = 100000000 sompi)
-      
-      return txTime >= payment.timestamp && 
-             Math.abs(txAmount - payment.amount) < 0.01; // Допуск 0.01 KAS
+      try {
+        // Время транзакции в миллисекундах
+        const txTime = tx.block_time ? tx.block_time : Date.now();
+        
+        // Ищем output на наш адрес
+        const output = tx.outputs?.find(o => 
+          o.script_public_key_address === payment.address
+        );
+        
+        if (!output) {
+          return false;
+        }
+        
+        // Kaspa использует sompi (1 KAS = 100000000 sompi)
+        const txAmount = parseFloat(output.amount || 0) / 100000000;
+        
+        console.log(`[Kaspa] TX ${tx.transaction_id?.substring(0, 16)}...`);
+        console.log(`[Kaspa]   Время: ${new Date(txTime).toISOString()}`);
+        console.log(`[Kaspa]   Сумма: ${txAmount} KAS`);
+        console.log(`[Kaspa]   Ожидается: ${payment.amount} KAS`);
+        
+        // Проверяем что транзакция после создания платежа и сумма совпадает
+        const isAfterPayment = txTime >= payment.timestamp;
+        const amountMatches = Math.abs(txAmount - payment.amount) < 0.01; // Допуск 0.01 KAS
+        
+        if (isAfterPayment && amountMatches) {
+          console.log(`[Kaspa]   ✅ Транзакция подходит!`);
+          return true;
+        }
+        
+        return false;
+      } catch (e) {
+        console.error(`[Kaspa] Ошибка обработки транзакции:`, e);
+        return false;
+      }
     });
 
     if (matchingTx) {
