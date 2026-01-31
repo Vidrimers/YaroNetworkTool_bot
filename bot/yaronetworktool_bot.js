@@ -1779,7 +1779,7 @@ bot.on("callback_query", async (query) => {
       
       bot.answerCallbackQuery(query.id);
       
-      await handlePaymentPlan(bot, chatId, userId, method, plan);
+      await handlePaymentPlan(bot, chatId, userId, method, plan, apiClient);
       return;
     }
     

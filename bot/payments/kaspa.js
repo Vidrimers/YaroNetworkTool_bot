@@ -4,7 +4,7 @@
  */
 
 // Обработать оплату через Kaspa
-export async function handleKaspa(bot, chatId, userId, plan, planData) {
+export async function handleKaspa(bot, chatId, userId, plan, planData, customPrice = null) {
   try {
     const KASPA_ADDRESS = process.env.KASPA_ADDRESS; // Адрес кошелька Kaspa
     
@@ -20,6 +20,9 @@ export async function handleKaspa(bot, chatId, userId, plan, planData) {
 
     // Генерируем уникальный ID платежа
     const paymentId = `vpn_${userId}_${plan}_${Date.now()}`;
+    
+    // Используем индивидуальную цену, если она задана
+    const finalPrice = customPrice !== null ? customPrice : planData.price_kaspa;
     
     // Сохраняем ожидаемый платеж (можно в БД или в памяти)
     // Для простоты пока просто показываем адрес
@@ -39,13 +42,13 @@ export async function handleKaspa(bot, chatId, userId, plan, planData) {
       chatId,
       `🔷 <b>Оплата через Kaspa</b>\n\n` +
         `📦 Тариф: ${planData.name}\n` +
-        `💰 Цена: ${planData.price_kaspa} KAS\n` +
+        `💰 Цена: ${finalPrice} KAS${customPrice !== null ? ' (индивидуальная)' : ''}\n` +
         `📅 Срок: ${planData.days} дней\n\n` +
         `<b>Адрес для оплаты:</b>\n` +
         `<code>${KASPA_ADDRESS}</code>\n\n` +
-        `<b>Сумма:</b> <code>${planData.price_kaspa}</code> KAS\n\n` +
+        `<b>Сумма:</b> <code>${finalPrice}</code> KAS\n\n` +
         `<b>ID платежа:</b> <code>${paymentId}</code>\n\n` +
-        `<i>⚠️ Отправь точную сумму ${planData.price_kaspa} KAS на указанный адрес.\n` +
+        `<i>⚠️ Отправь точную сумму ${finalPrice} KAS на указанный адрес.\n` +
         `Нажми на адрес чтобы скопировать.\n` +
         `После отправки нажми "Я оплатил" для проверки платежа.</i>\n\n` +
         `<i>Проверка может занять 1-2 минуты.</i>`,
@@ -61,7 +64,7 @@ export async function handleKaspa(bot, chatId, userId, plan, planData) {
     global.pendingKaspaPayments[paymentId] = {
       userId,
       plan,
-      amount: planData.price_kaspa,
+      amount: finalPrice,
       address: KASPA_ADDRESS,
       timestamp: Date.now(),
       status: 'pending'

@@ -124,12 +124,26 @@ function getPriceForMethod(plan, method) {
 }
 
 // Обработать выбор тарифного плана
-export async function handlePaymentPlan(bot, chatId, userId, paymentMethod, plan) {
+export async function handlePaymentPlan(bot, chatId, userId, paymentMethod, plan, apiClient = null) {
   const planData = SUBSCRIPTION_PLANS[plan];
   
   if (!planData) {
     bot.sendMessage(chatId, '❌ Неверный тарифный план');
     return;
+  }
+
+  // Получаем индивидуальную цену клиента (если есть)
+  let customPrice = null;
+  if (paymentMethod === 'kaspa' && apiClient) {
+    try {
+      const clientsResponse = await apiClient.getClients();
+      const client = clientsResponse.clients?.find(c => c.telegram_id === userId);
+      if (client && client.custom_price_kaspa !== null && client.custom_price_kaspa !== undefined) {
+        customPrice = client.custom_price_kaspa;
+      }
+    } catch (error) {
+      console.error('Ошибка получения индивидуальной цены:', error);
+    }
   }
 
   // Вызываем соответствующий обработчик
@@ -144,7 +158,7 @@ export async function handlePaymentPlan(bot, chatId, userId, paymentMethod, plan
       await handleUSDT(bot, chatId, userId, plan, planData);
       break;
     case 'kaspa':
-      await handleKaspa(bot, chatId, userId, plan, planData);
+      await handleKaspa(bot, chatId, userId, plan, planData, customPrice);
       break;
     default:
       bot.sendMessage(chatId, '❌ Неизвестный метод оплаты');
