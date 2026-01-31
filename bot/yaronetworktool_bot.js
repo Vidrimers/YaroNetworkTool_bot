@@ -462,6 +462,12 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
     message += `<b>Трафик:</b> ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n`;
     message += `<b>Сброс трафика:</b> ${formatDate(client.traffic_reset_date)}\n\n`;
+    
+    // Индивидуальная цена Kaspa
+    if (client.custom_price_kaspa !== null && client.custom_price_kaspa !== undefined) {
+      message += `<b>💰 Индивидуальная цена Kaspa:</b> ${client.custom_price_kaspa} KAS\n\n`;
+    }
+    
     message += `<b>📱 Активных устройств:</b> ${deviceCount} / ${maxDevices}`;
     
     if (deviceCount > maxDevices) {
@@ -479,6 +485,9 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
         ],
         [
           { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
+        ],
+        [
+          { text: "💰 Индивидуальная цена Kaspa", callback_data: `custom_price_kaspa_${uuid}` }
         ]
       ]
     };
@@ -1084,6 +1093,71 @@ bot.on("message", async (msg) => {
         userStates.delete(userId);
       } catch (error) {
         console.error("Ошибка выдачи предупреждения:", error);
+        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
+          reply_markup: getMainKeyboard(true)
+        });
+        userStates.delete(userId);
+      }
+      return;
+    }
+    
+    // Обработка ввода индивидуальной цены Kaspa
+    if (userState.action === "set_custom_price_kaspa") {
+      const priceInput = text.trim();
+      
+      // Проверка на отмену
+      if (priceInput.toLowerCase() === '/cancel' || priceInput.toLowerCase() === 'отмена') {
+        bot.sendMessage(chatId, "❌ Отменено", {
+          reply_markup: getMainKeyboard(true)
+        });
+        userStates.delete(userId);
+        return;
+      }
+      
+      const price = parseFloat(priceInput);
+      
+      if (isNaN(price) || price < 0) {
+        bot.sendMessage(chatId, "❌ Неверный формат. Введи число (например: 12.5) или 0 для бесплатного доступа:");
+        return;
+      }
+      
+      try {
+        await apiClient.updateClient(userState.uuid, { custom_price_kaspa: price });
+        const response = await apiClient.getClient(userState.uuid);
+        const client = response.client;
+        
+        const priceText = price === 0 ? 'бесплатно (0 KAS)' : `${price} KAS`;
+        
+        bot.sendMessage(
+          chatId,
+          `✅ <b>Индивидуальная цена установлена</b>\n\n` +
+            `👤 Клиент: ${client.name}\n` +
+            `💰 Новая цена: ${priceText}\n\n` +
+            `Клиент будет видеть эту цену при оплате через Kaspa.`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: getMainKeyboard(true)
+          }
+        );
+        
+        // Отправляем уведомление клиенту
+        if (client.telegram_id) {
+          try {
+            await bot.sendMessage(
+              client.telegram_id,
+              `💰 <b>Специальное предложение!</b>\n\n` +
+                `Для тебя установлена индивидуальная цена при оплате через Kaspa: <b>${priceText}</b>\n\n` +
+                `Это специальное предложение действует только для тебя! 🎉`,
+              { parse_mode: "HTML" }
+            );
+          } catch (notifyError) {
+            console.error("Не удалось отправить уведомление клиенту:", notifyError.message);
+          }
+        }
+        
+        userStates.delete(userId);
+      } catch (error) {
+        console.error("Ошибка установки цены:", error);
         bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
           reply_markup: getMainKeyboard(true)
         });
@@ -4729,6 +4803,208 @@ bot.on("callback_query", async (query) => {
           show_alert: true,
         });
       }
+      return;
+    }
+
+    // Индивидуальная цена Kaspa - показать меню
+    if (data.startsWith("custom_price_kaspa_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("custom_price_kaspa_", "");
+      
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+        
+        const currentPrice = client.custom_price_kaspa !== null && client.custom_price_kaspa !== undefined 
+          ? `${client.custom_price_kaspa} KAS` 
+          : 'стандартная';
+        
+        // Показываем кнопки выбора цены
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "🆓 Бесплатно (0 KAS)", callback_data: `set_price_kaspa_${uuid}_0` }
+            ],
+            [
+              { text: "5 KAS", callback_data: `set_price_kaspa_${uuid}_5` },
+              { text: "10 KAS", callback_data: `set_price_kaspa_${uuid}_10` },
+              { text: "15 KAS", callback_data: `set_price_kaspa_${uuid}_15` }
+            ],
+            [
+              { text: "20 KAS", callback_data: `set_price_kaspa_${uuid}_20` },
+              { text: "25 KAS (стандарт)", callback_data: `set_price_kaspa_${uuid}_25` },
+              { text: "30 KAS", callback_data: `set_price_kaspa_${uuid}_30` }
+            ],
+            [
+              { text: "50 KAS", callback_data: `set_price_kaspa_${uuid}_50` },
+              { text: "70 KAS", callback_data: `set_price_kaspa_${uuid}_70` },
+              { text: "100 KAS", callback_data: `set_price_kaspa_${uuid}_100` }
+            ],
+            [
+              { text: "🔄 Сбросить на стандартную", callback_data: `set_price_kaspa_${uuid}_reset` }
+            ],
+            [
+              { text: "✏️ Ввести свою цену", callback_data: `set_price_kaspa_custom_${uuid}` }
+            ],
+            [
+              { text: "« Назад", callback_data: `back_to_client_info_${uuid}` }
+            ]
+          ]
+        };
+
+        bot.editMessageText(
+          `💰 <b>Индивидуальная цена Kaspa</b>\n\n` +
+            `👤 Клиент: ${client.name}\n` +
+            `💵 Текущая цена: ${currentPrice}\n\n` +
+            `Выбери новую цену или сбрось на стандартную:`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          }
+        );
+
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("Ошибка получения клиента:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Установить индивидуальную цену Kaspa
+    if (data.startsWith("set_price_kaspa_") && !data.includes("custom_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const parts = data.replace("set_price_kaspa_", "").split("_");
+      const uuid = parts[0];
+      const priceValue = parts[1];
+
+      try {
+        const customPrice = priceValue === 'reset' ? null : parseFloat(priceValue);
+        
+        await apiClient.updateClient(uuid, { custom_price_kaspa: customPrice });
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+
+        const priceText = customPrice === null 
+          ? 'стандартная' 
+          : customPrice === 0 
+            ? 'бесплатно (0 KAS)' 
+            : `${customPrice} KAS`;
+
+        bot.answerCallbackQuery(query.id, {
+          text: `✅ Цена изменена: ${priceText}`,
+          show_alert: true,
+        });
+
+        // Отправляем уведомление клиенту (если цена не стандартная)
+        if (client.telegram_id && customPrice !== null) {
+          try {
+            await bot.sendMessage(
+              client.telegram_id,
+              `💰 <b>Специальное предложение!</b>\n\n` +
+                `Для тебя установлена индивидуальная цена при оплате через Kaspa: <b>${priceText}</b>\n\n` +
+                `Это специальное предложение действует только для тебя! 🎉`,
+              { parse_mode: "HTML" }
+            );
+          } catch (notifyError) {
+            console.error("Не удалось отправить уведомление клиенту:", notifyError.message);
+          }
+        }
+
+        // Показываем обновленную информацию
+        const endDate = new Date(client.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+        const status = client.status === "active" ? "✅ Активен" : "❌ Заблокирован";
+
+        let message = `👤 <b>Информация о клиенте</b>\n\n`;
+        message += `<b>Имя:</b> ${client.name}\n`;
+        message += `<b>UUID:</b> <code>${client.uuid}</code>\n`;
+        message += `<b>Telegram ID:</b> ${client.telegram_id || "не связан"}\n\n`;
+        message += `<b>Статус:</b> ${status}\n`;
+        message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}\n\n`;
+        message += `<b>Трафик:</b> ${formatTraffic(client.traffic_used_gb)}/${client.traffic_limit_gb} GB\n\n`;
+        message += `<b>💰 Индивидуальная цена Kaspa:</b> ${priceText}\n`;
+        message += `✅ Цена успешно изменена!`;
+
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "💰 Изменить цену", callback_data: `custom_price_kaspa_${uuid}` }
+            ],
+            [
+              { text: "« Назад к клиенту", callback_data: `back_to_client_info_${uuid}` }
+            ]
+          ]
+        };
+
+        bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
+
+      } catch (error) {
+        console.error("Ошибка изменения цены:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
+      }
+      return;
+    }
+
+    // Ввести свою цену Kaspa
+    if (data.startsWith("set_price_kaspa_custom_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("set_price_kaspa_custom_", "");
+      
+      bot.answerCallbackQuery(query.id);
+      
+      userStates.set(userId, { 
+        action: "set_custom_price_kaspa", 
+        uuid: uuid,
+        messageId: query.message.message_id
+      });
+      
+      bot.editMessageText(
+        `✏️ <b>Ввести индивидуальную цену Kaspa</b>\n\n` +
+          `Отправь число - цену в KAS (например: 12.5)\n` +
+          `Или отправь "0" для бесплатного доступа\n\n` +
+          `Для отмены отправь /cancel`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML"
+        }
+      );
+      
       return;
     }
 
