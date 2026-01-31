@@ -172,6 +172,18 @@ export async function checkKaspaPayment(paymentId, apiClient, bot) {
       // Продлеваем подписку
       await apiClient.extendSubscription(payment.userId, planData.days);
 
+      // Сбрасываем индивидуальную цену после успешной оплаты (одноразовая скидка)
+      try {
+        const clientsResponse = await apiClient.getClients();
+        const client = clientsResponse.clients?.find(c => c.telegram_id === payment.userId);
+        if (client && client.custom_price_kaspa !== null) {
+          await apiClient.updateClient(client.uuid, { custom_price_kaspa: null });
+          console.log(`[Kaspa] Индивидуальная цена сброшена для клиента ${client.uuid}`);
+        }
+      } catch (err) {
+        console.error('[Kaspa] Ошибка сброса индивидуальной цены:', err);
+      }
+
       // Обновляем статус платежа
       payment.status = 'completed';
       payment.txId = matchingTx.transaction_id;
