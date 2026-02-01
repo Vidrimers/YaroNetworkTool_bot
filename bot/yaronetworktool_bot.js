@@ -1355,12 +1355,12 @@ bot.on("message", async (msg) => {
         
         const activeClients = clients.filter(c => c.status === "active");
         const blockedClients = clients.filter(c => c.status === "blocked");
-        const totalTraffic = clients.reduce((sum, c) => sum + (c.traffic_used_gb || 0), 0);
         
         // Получаем статистику трафика за день/неделю/месяц для всех клиентов
         let dayTraffic = 0;
         let weekTraffic = 0;
         let monthTraffic = 0;
+        const clientsWithStats = [];
         
         for (const client of clients) {
           try {
@@ -1369,14 +1369,16 @@ bot.on("message", async (msg) => {
             dayTraffic += stats.day || 0;
             weekTraffic += stats.week || 0;
             monthTraffic += stats.month || 0;
+            clientsWithStats.push({ ...client, monthTraffic: stats.month || 0 });
           } catch (err) {
             console.error(`Ошибка получения статистики для ${client.uuid}:`, err);
+            clientsWithStats.push({ ...client, monthTraffic: 0 });
           }
         }
         
-        // Топ 5 клиентов по трафику
-        const topClients = [...clients]
-          .sort((a, b) => (b.traffic_used_gb || 0) - (a.traffic_used_gb || 0))
+        // Топ 5 клиентов по трафику за месяц
+        const topClients = [...clientsWithStats]
+          .sort((a, b) => b.monthTraffic - a.monthTraffic)
           .slice(0, 5);
         
         // Клиенты с истекающими подписками (< 7 дней)
@@ -1402,13 +1404,12 @@ bot.on("message", async (msg) => {
         message += `   За день: ${dayTraffic.toFixed(2)} GB\n`;
         message += `   За неделю: ${weekTraffic.toFixed(2)} GB\n`;
         message += `   За месяц: ${monthTraffic.toFixed(2)} GB\n`;
-        message += `   Текущий (с сброса): ${totalTraffic.toFixed(2)} GB\n`;
-        message += `   Средний на клиента: ${(totalTraffic / clients.length || 0).toFixed(2)} GB\n\n`;
+        message += `   Средний на клиента: ${(monthTraffic / clients.length || 0).toFixed(2)} GB\n\n`;
         
         if (topClients.length > 0) {
-          message += `🏆 <b>Топ клиентов по трафику:</b>\n`;
+          message += `🏆 <b>Топ клиентов по трафику (за месяц):</b>\n`;
           topClients.forEach((c, i) => {
-            message += `   ${i + 1}. ${c.name}: ${(c.traffic_used_gb || 0).toFixed(2)} GB\n`;
+            message += `   ${i + 1}. ${c.name}: ${c.monthTraffic.toFixed(2)} GB\n`;
           });
           message += `\n`;
         }
