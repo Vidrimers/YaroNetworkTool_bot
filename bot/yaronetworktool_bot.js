@@ -3096,7 +3096,7 @@ bot.on("callback_query", async (query) => {
         const { mkdir } = await import('fs/promises');
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = dirname(__filename);
-        const backupDir = join(dirname(__dirname), 'backups');
+        const backupDir = '/home/xray-vpn/backups';
         
         // Создаем директорию если не существует
         try {
