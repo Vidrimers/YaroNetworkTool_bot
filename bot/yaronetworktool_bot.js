@@ -660,7 +660,6 @@ bot.onText(/\/my_vpn/, async (msg) => {
     message += `<b>Статус:</b> ${status}\n`;
     message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
     message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-    message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
     
     // Добавляем статистику трафика
     if (trafficStats) {
@@ -1651,7 +1650,6 @@ bot.on("message", async (msg) => {
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-        message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
         
         // Добавляем статистику трафика
         if (trafficStats) {
@@ -4149,7 +4147,6 @@ bot.on("callback_query", async (query) => {
           message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла"}${isExpiringSoon ? ' ⏰ (скоро истекает!)' : ''}\n`;
           message += `<b>Начало:</b> ${formatDate(clientData.subscription_start)}\n`;
           message += `<b>Конец:</b> ${formatDate(endDate)}\n\n`;
-          message += `<b>Трафик (текущий):</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB\n`;
           
           // Добавляем статистику трафика
           if (trafficStats) {
