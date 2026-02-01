@@ -12,6 +12,7 @@ import { promisify } from "util";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import APIClient from "./utils/api-client.js";
+import TrafficLogModel from "../../database/models/traffic-log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,6 +36,10 @@ if (!TELEGRAM_BOT_TOKEN) {
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 const apiClient = new APIClient();
+
+// Инициализируем модель для записи трафика
+const DB_PATH = process.env.DB_PATH || join(__dirname, '..', '..', 'database', 'vpn.db');
+const trafficLogModel = new TrafficLogModel(DB_PATH);
 
 // Функция для парсинга логов X-Ray и подсчета активных устройств
 async function getActiveDevices() {
@@ -71,6 +76,7 @@ async function getActiveDevices() {
     const now = Date.now();
     const activeWindowMs = ACTIVE_WINDOW_MINUTES * 60 * 1000;
     const devicesByClient = new Map();
+    const trafficByClient = new Map(); // Для подсчета трафика
 
     // Парсим каждую строку лога
     const lines = stdout.split('\n');
@@ -139,6 +145,13 @@ async function getActiveDevices() {
         }
         devicesByClient.get(uuid).add(ip);
 
+        // Подсчитываем трафик (примерно 1KB на соединение, так как в логах нет точных данных)
+        // Это приблизительная оценка для статистики
+        if (!trafficByClient.has(uuid)) {
+          trafficByClient.set(uuid, 0);
+        }
+        trafficByClient.set(uuid, trafficByClient.get(uuid) + 1024); // +1KB на соединение
+
       } catch (err) {
         // Пропускаем строки с ошибками парсинга
         continue;
@@ -148,6 +161,22 @@ async function getActiveDevices() {
     console.log(`[getActiveDevices] Строк с 'accepted': ${acceptedLines}`);
     console.log(`[getActiveDevices] Успешно распарсено: ${parsedLines}`);
     console.log(`[getActiveDevices] Найдено клиентов с устройствами: ${devicesByClient.size}`);
+
+    // Записываем трафик в БД
+    const today = new Date().toISOString().split('T')[0];
+    for (const [uuid, bytes] of trafficByClient.entries()) {
+      try {
+        await trafficLogModel.add({
+          client_uuid: uuid,
+          date: today,
+          bytes_uploaded: Math.floor(bytes / 2), // Примерно половина upload
+          bytes_downloaded: Math.floor(bytes / 2), // Примерно половина download
+          connections_count: 1
+        });
+      } catch (err) {
+        console.error(`[getActiveDevices] Ошибка записи трафика для ${uuid}:`, err.message);
+      }
+    }
 
     // Преобразуем Map в объект с количеством устройств
     const result = {};
