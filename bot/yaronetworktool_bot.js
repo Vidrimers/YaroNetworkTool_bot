@@ -665,7 +665,7 @@ bot.onText(/\/my_vpn/, async (msg) => {
     if (trafficStats) {
       message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
       message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
-      message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+      message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB / ${clientData.traffic_limit_gb} GB\n`;
     }
     
     // Добавляем общий трафик за месяц (если есть)
@@ -1562,11 +1562,23 @@ bot.on("message", async (msg) => {
         message += `<b>Статус:</b> ${status}\n`;
         message += `<b>Подписка:</b> ${daysLeft > 0 ? `${daysLeft} дней` : "истекла ⚠️"}\n`;
         message += `<b>Конец подписки:</b> ${formatDate(endDate)}\n\n`;
-        message += `<b>Трафик:</b> ${formatTraffic(clientData.traffic_used_gb)}/${clientData.traffic_limit_gb} GB (${trafficPercent}%)\n`;
         
-        // Добавляем общий трафик за месяц
-        if (totalTrafficData && totalTrafficData.total_gb > 0) {
-          message += `<b>Всего за месяц:</b> ${formatTraffic(totalTrafficData.total_gb)} GB\n`;
+        // Получаем статистику трафика за день/неделю/месяц
+        let trafficStats = null;
+        try {
+          const statsResponse = await apiClient.getClientTrafficStats(adminClient.uuid);
+          trafficStats = statsResponse.stats;
+        } catch (error) {
+          if (!error.message.includes('Not Found')) {
+            console.error("Ошибка получения статистики трафика:", error);
+          }
+        }
+
+        // Добавляем статистику трафика
+        if (trafficStats) {
+          message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
+          message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
+          message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB / ${clientData.traffic_limit_gb} GB\n\n`;
         }
         
         message += `<b>📱 Устройств:</b> ${deviceCount}/${maxDevices}`;
@@ -1655,7 +1667,7 @@ bot.on("message", async (msg) => {
         if (trafficStats) {
           message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
           message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
-          message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+          message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB / ${clientData.traffic_limit_gb} GB\n`;
         }
         
         // Добавляем общий трафик за месяц (если нет статистики)
@@ -4152,7 +4164,7 @@ bot.on("callback_query", async (query) => {
           if (trafficStats) {
             message += `<b>За день:</b> ${formatTraffic(trafficStats.day)} GB\n`;
             message += `<b>За неделю:</b> ${formatTraffic(trafficStats.week)} GB\n`;
-            message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB\n`;
+            message += `<b>За месяц:</b> ${formatTraffic(trafficStats.month)} GB / ${clientData.traffic_limit_gb} GB\n`;
           }
           
           message += `<b>Сброс трафика:</b> ${formatDate(clientData.traffic_reset_date)}\n\n`;
