@@ -81,8 +81,8 @@ async function collectTrafficStats() {
   console.log(`\n[${new Date().toISOString()}] Запуск сбора статистики трафика...`);
 
   try {
-    // Динамически импортируем TrafficLogModel
-    const TrafficLogModel = (await import('../../database/models/traffic-log.js')).default;
+    // Динамически импортируем TrafficLogModel с абсолютным путем
+    const TrafficLogModel = (await import('/home/xray-vpn/database/models/traffic-log.js')).default;
     const DB_PATH = process.env.DB_PATH || '/home/xray-vpn/database/vpn.db';
     const trafficLogModel = new TrafficLogModel(DB_PATH);
 
