@@ -11,7 +11,6 @@ import { promisify } from "util";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import APIClient from "./utils/api-client.js";
-import TrafficLogModel from "../../database/models/traffic-log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,11 +20,9 @@ const execAsync = promisify(exec);
 // Загружаем .env
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
-const DB_PATH = process.env.DB_PATH || join(__dirname, '..', '..', 'database', 'vpn.db');
 const XRAY_API_PORT = process.env.XRAY_API_PORT || 10085;
 
 const apiClient = new APIClient();
-const trafficLogModel = new TrafficLogModel(DB_PATH);
 
 /**
  * Получить статистику трафика из Xray Stats API
@@ -84,6 +81,11 @@ async function collectTrafficStats() {
   console.log(`\n[${new Date().toISOString()}] Запуск сбора статистики трафика...`);
 
   try {
+    // Динамически импортируем TrafficLogModel
+    const TrafficLogModel = (await import('../../database/models/traffic-log.js')).default;
+    const DB_PATH = process.env.DB_PATH || '/home/xray-vpn/database/vpn.db';
+    const trafficLogModel = new TrafficLogModel(DB_PATH);
+
     // Получаем всех клиентов
     const clientsResponse = await apiClient.getClients();
     const clients = clientsResponse.clients || [];
