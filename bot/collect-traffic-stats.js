@@ -36,35 +36,37 @@ async function getXrayStats() {
       return {};
     }
 
-    // Получаем список всех пользователей и их статистику
+    // Получаем статистику из Xray API
     const { stdout } = await execAsync(
-      `xray api statsquery --server=127.0.0.1:${XRAY_API_PORT} -pattern "user>>>"`
+      `xray api statsquery --server=127.0.0.1:${XRAY_API_PORT}`
     );
 
+    // Парсим JSON ответ
+    const response = JSON.parse(stdout);
     const stats = {};
-    const lines = stdout.split('\n');
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    if (!response.stat || !Array.isArray(response.stat)) {
+      console.log('[collectTrafficStats] Нет данных статистики в ответе API');
+      return {};
+    }
 
-      try {
-        // Формат: user>>>email>>>traffic>>>uplink: 12345
-        // Формат: user>>>email>>>traffic>>>downlink: 67890
-        const match = line.match(/user>>>(.+?)>>>traffic>>>(uplink|downlink):\s*(\d+)/);
-        if (!match) continue;
+    // Обрабатываем каждую запись статистики
+    for (const item of response.stat) {
+      if (!item.name || !item.name.startsWith('user>>>')) continue;
 
-        const email = match[1];
-        const direction = match[2]; // uplink или downlink
-        const bytes = parseInt(match[3]);
+      // Формат: user>>>email>>>traffic>>>uplink или user>>>email>>>traffic>>>downlink
+      const parts = item.name.split('>>>');
+      if (parts.length !== 4) continue;
 
-        if (!stats[email]) {
-          stats[email] = { uplink: 0, downlink: 0 };
-        }
+      const email = parts[1];
+      const direction = parts[3]; // uplink или downlink
+      const bytes = parseInt(item.value) || 0;
 
-        stats[email][direction] = bytes;
-      } catch (err) {
-        continue;
+      if (!stats[email]) {
+        stats[email] = { uplink: 0, downlink: 0 };
       }
+
+      stats[email][direction] = bytes;
     }
 
     return stats;
