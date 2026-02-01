@@ -488,6 +488,9 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
         ],
         [
           { text: "💰 Индивидуальная цена Kaspa", callback_data: `custom_price_kaspa_${uuid}` }
+        ],
+        [
+          { text: "◀️ Назад", callback_data: "back_to_main" }
         ]
       ]
     };
@@ -2368,7 +2371,7 @@ bot.on("callback_query", async (query) => {
       };
 
       keyboard.inline_keyboard.push([
-        { text: "🏠 Главное меню", callback_data: "back_to_main" },
+        { text: "◀️ Назад", callback_data: "back_to_main" },
         { text: "❌ Отмена", callback_data: "info_cancel" }
       ]);
 
@@ -4068,6 +4071,60 @@ bot.on("callback_query", async (query) => {
     }
 
     // Главное меню
+    // Возврат к списку клиентов
+    if (data === "back_to_clients_list") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const response = await apiClient.getClients();
+      const clients = response.clients || [];
+
+      if (clients.length === 0) {
+        bot.answerCallbackQuery(query.id, {
+          text: "📭 Клиенты не найдены",
+          show_alert: true,
+        });
+        return;
+      }
+
+      let message = "ℹ️ <b>Информация о клиенте</b>\n\n";
+      message += "Выбери клиента:\n\n";
+
+      // Сохраняем список клиентов в состояние
+      userStates.set(userId, { 
+        action: "info_client_list", 
+        clients: clients 
+      });
+
+      const keyboard = {
+        inline_keyboard: clients.map((client, index) => [{
+          text: `${client.name} (${client.uuid.substring(0, 8)}...)`,
+          callback_data: `info_idx_${index}`
+        }])
+      };
+
+      keyboard.inline_keyboard.push([
+        { text: "◀️ Назад", callback_data: "back_to_main" },
+        { text: "❌ Отмена", callback_data: "info_cancel" }
+      ]);
+
+      bot.editMessageText(message, {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      });
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Главное меню
     if (data === "back_to_main") {
       console.log(`[BACK_TO_MAIN] User ${userId} clicked back_to_main`);
       
@@ -4225,9 +4282,12 @@ bot.on("callback_query", async (query) => {
             ]);
           }
 
-          // Кнопка главного меню
+          // Кнопки навигации
           keyboard.inline_keyboard.push([
-            { text: "🏠 Главное меню", callback_data: "back_to_main" }
+            { text: "◀️ Назад к списку", callback_data: "admin_client_info" }
+          ]);
+          keyboard.inline_keyboard.push([
+            { text: "❌ Отмена", callback_data: "back_to_main" }
           ]);
 
           bot.editMessageText(message, {
