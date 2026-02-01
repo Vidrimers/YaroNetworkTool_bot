@@ -125,7 +125,10 @@ async function collectTrafficStats() {
       }
 
       try {
-        await trafficLogModel.add({
+        console.log(`[collectTrafficStats] Попытка записи для ${clientName} (${uuid})`);
+        console.log(`[collectTrafficStats]   Данные: uplink=${traffic.uplink}, downlink=${traffic.downlink}`);
+        
+        const result = await trafficLogModel.add({
           client_uuid: uuid,
           date: today,
           bytes_uploaded: traffic.uplink,
@@ -133,10 +136,12 @@ async function collectTrafficStats() {
           connections_count: 1
         });
 
+        console.log(`[collectTrafficStats]   ✅ Записано успешно, result:`, result);
         recorded++;
         console.log(`[collectTrafficStats] ${clientName}: ↑${(traffic.uplink / 1024 / 1024).toFixed(2)} MB ↓${(traffic.downlink / 1024 / 1024).toFixed(2)} MB`);
       } catch (err) {
-        console.error(`[collectTrafficStats] Ошибка записи для ${clientName}:`, err.message);
+        console.error(`[collectTrafficStats] ❌ Ошибка записи для ${clientName}:`, err);
+        console.error(`[collectTrafficStats]    Stack:`, err.stack);
       }
     }
 
