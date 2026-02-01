@@ -32,8 +32,9 @@ mkdir -p "$BACKUP_PATH"
 
 # 1. Бэкап базы данных
 echo -e "${YELLOW}[1/4] Копирование базы данных...${NC}"
-if [ -f "$PROJECT_ROOT/database/yaronetworkbase.db" ]; then
-    cp "$PROJECT_ROOT/database/yaronetworkbase.db" "$BACKUP_PATH/yaronetworkbase.db"
+# Бэкапим основную БД из /home/xray-vpn
+if [ -f "/home/xray-vpn/database/vpn.db" ]; then
+    cp "/home/xray-vpn/database/vpn.db" "$BACKUP_PATH/vpn.db"
     echo -e "${GREEN}✓ База данных скопирована${NC}"
 else
     echo -e "${RED}✗ База данных не найдена${NC}"
@@ -50,8 +51,8 @@ fi
 
 # 3. Бэкап списка клиентов (если есть)
 echo -e "${YELLOW}[3/4] Экспорт списка клиентов...${NC}"
-if [ -f "$PROJECT_ROOT/database/yaronetworkbase.db" ]; then
-    sqlite3 "$PROJECT_ROOT/database/yaronetworkbase.db" <<EOF > "$BACKUP_PATH/clients_export.sql"
+if [ -f "/home/xray-vpn/database/vpn.db" ]; then
+    sqlite3 "/home/xray-vpn/database/vpn.db" <<EOF > "$BACKUP_PATH/clients_export.sql"
 .mode insert clients
 SELECT * FROM clients;
 EOF
