@@ -812,7 +812,7 @@ bot.on("message", async (msg) => {
             name: userState.name,
             telegram_id: userState.targetUserId,
             subscription_days: days,
-            traffic_limit_gb: 200
+            traffic_limit_gb: 100
           });
           
           const client = response.client;
@@ -929,7 +929,7 @@ bot.on("message", async (msg) => {
             name: userState.name,
             telegram_id: userState.telegram_id,
             subscription_days: days,
-            traffic_limit_gb: 200
+            traffic_limit_gb: 100
           });
           
           const client = response.client;
