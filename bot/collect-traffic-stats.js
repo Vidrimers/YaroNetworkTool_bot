@@ -112,8 +112,24 @@ async function collectTrafficStats() {
       return;
     }
 
+    // Получаем предыдущие значения для расчета дельты
+    const previousStats = new Map();
+    for (const client of clients) {
+      try {
+        const lastRecord = await trafficLogModel.getLastRecord(client.uuid);
+        if (lastRecord) {
+          previousStats.set(client.uuid, {
+            uplink: lastRecord.bytes_uploaded,
+            downlink: lastRecord.bytes_downloaded,
+            total: lastRecord.bytes_total
+          });
+        }
+      } catch (err) {
+        console.log(`[collectTrafficStats] Нет предыдущих записей для ${client.name}`);
+      }
+    }
+
     // Записываем статистику в БД
-    const today = new Date().toISOString().split('T')[0];
     let recorded = 0;
 
     for (const [clientName, traffic] of Object.entries(xrayStats)) {
@@ -124,24 +140,43 @@ async function collectTrafficStats() {
         continue;
       }
 
+      // Получаем предыдущие значения
+      const prev = previousStats.get(uuid) || { uplink: 0, downlink: 0, total: 0 };
+      
+      // Считаем дельту (разницу с предыдущим значением)
+      // Если счетчик Xray сбросился (перезапуск), берем текущее значение
+      const deltaUplink = traffic.uplink >= prev.uplink 
+        ? traffic.uplink - prev.uplink 
+        : traffic.uplink;
+      
+      const deltaDownlink = traffic.downlink >= prev.downlink 
+        ? traffic.downlink - prev.downlink 
+        : traffic.downlink;
+      
+      const deltaTotal = deltaUplink + deltaDownlink;
+
+      // Пропускаем если нет изменений
+      if (deltaTotal === 0) {
+        console.log(`[collectTrafficStats] ${clientName}: нет изменений, пропускаем`);
+        continue;
+      }
+
       try {
-        console.log(`[collectTrafficStats] Попытка записи для ${clientName} (${uuid})`);
-        console.log(`[collectTrafficStats]   Данные: uplink=${traffic.uplink}, downlink=${traffic.downlink}`);
+        console.log(`[collectTrafficStats] Запись для ${clientName} (${uuid})`);
+        console.log(`[collectTrafficStats]   Дельта: ↑${(deltaUplink / 1024 / 1024).toFixed(2)} MB ↓${(deltaDownlink / 1024 / 1024).toFixed(2)} MB`);
         
-        const result = await trafficLogModel.add({
+        const result = await trafficLogModel.addHourly({
           client_uuid: uuid,
-          date: today,
-          bytes_uploaded: traffic.uplink,
-          bytes_downloaded: traffic.downlink,
+          bytes_uploaded: deltaUplink,
+          bytes_downloaded: deltaDownlink,
+          bytes_total: deltaTotal,
           connections_count: 1
         });
 
-        console.log(`[collectTrafficStats]   ✅ Записано успешно, result:`, result);
+        console.log(`[collectTrafficStats]   ✅ Записано, ID: ${result.id}`);
         recorded++;
-        console.log(`[collectTrafficStats] ${clientName}: ↑${(traffic.uplink / 1024 / 1024).toFixed(2)} MB ↓${(traffic.downlink / 1024 / 1024).toFixed(2)} MB`);
       } catch (err) {
-        console.error(`[collectTrafficStats] ❌ Ошибка записи для ${clientName}:`, err);
-        console.error(`[collectTrafficStats]    Stack:`, err.stack);
+        console.error(`[collectTrafficStats] ❌ Ошибка записи для ${clientName}:`, err.message);
       }
     }
 
