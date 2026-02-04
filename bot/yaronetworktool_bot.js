@@ -481,7 +481,7 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
     const keyboard = {
       inline_keyboard: [
         [
-          { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${uuid}` }
+          { text: "🔗 Показать ссылку подписки", callback_data: `show_vless_${uuid}` }
         ],
         [
           { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
@@ -707,12 +707,30 @@ bot.onText(/\/my_link/, async (msg) => {
       return;
     }
 
-    let message = `🔗 <b>Ссылка подключения</b>\n\n`;
-    message += `Твой UUID: <code>${client.uuid}</code>\n\n`;
-    message += `Для получения ссылки подключения обратись к администратору.\n`;
-    message += `Администратор сгенерирует для тебя vless:// ссылку и QR код.`;
+    // Генерируем ссылку подписки
+    const subscriptionUrl = `https://${SERVER_IP}/subscription/${client.uuid}`;
+    
+    // Генерируем QR код
+    const qrCodeBuffer = await QRCode.toBuffer(subscriptionUrl);
 
-    bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+    let message = `🔗 <b>Ссылка подписки</b>\n\n`;
+    message += `<code>${subscriptionUrl}</code>\n\n`;
+    message += `<b>Как подключиться:</b>\n`;
+    message += `1. Скачай VPN клиент: /download\n`;
+    message += `2. Открой приложение\n`;
+    message += `3. Нажми "+" → "Import from URL"\n`;
+    message += `4. Вставь ссылку выше\n`;
+    message += `5. Подключись\n\n`;
+    message += `<i>⚠️ Не передавай ссылку другим!</i>`;
+
+    // Отправляем сообщение
+    await bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+    
+    // Отправляем QR код
+    await bot.sendPhoto(chatId, qrCodeBuffer, {
+      caption: "📱 Отсканируй QR код в приложении"
+    });
+
   } catch (error) {
     console.error("Ошибка /my_link:", error);
     bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
@@ -4255,7 +4273,7 @@ bot.on("callback_query", async (query) => {
 
           // Кнопка показать VLESS ссылку
           keyboard.inline_keyboard.push([
-            { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${clientData.uuid}` }
+            { text: "🔗 Показать ссылку подписки", callback_data: `show_vless_${clientData.uuid}` }
           ]);
 
           // Кнопка разблокировать если клиент заблокирован
@@ -4693,7 +4711,7 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
-    // Показать VLESS ссылку
+    // Показать ссылку подписки
     if (data.startsWith("show_vless_")) {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
@@ -4709,41 +4727,24 @@ bot.on("callback_query", async (query) => {
         const response = await apiClient.getClient(uuid);
         const client = response.client;
         
-        // Генерируем VLESS ссылку
-        let vlessLink = '';
-        try {
-          if (XRAY_PUBLIC_KEY && XRAY_SHORT_ID) {
-            vlessLink = generateVlessLink({
-              uuid: client.uuid,
-              serverIp: SERVER_IP,
-              port: XRAY_PORT,
-              publicKey: XRAY_PUBLIC_KEY,
-              shortId: XRAY_SHORT_ID,
-              sni: XRAY_SNI,
-              clientName: client.name
-            });
-          }
-        } catch (linkError) {
-          console.error('Ошибка генерации vless ссылки:', linkError);
-        }
+        // Генерируем ссылку подписки
+        const subscriptionUrl = `https://${SERVER_IP}/subscription/${uuid}`;
         
-        if (vlessLink) {
-          bot.answerCallbackQuery(query.id);
-          bot.sendMessage(
-            chatId,
-            `🔗 <b>VLESS ссылка для ${client.name}</b>\n\n` +
-              `<code>${vlessLink}</code>\n\n` +
-              `<i>Скопируй ссылку и отправь клиенту</i>`,
-            { parse_mode: "HTML" }
-          );
-        } else {
-          bot.answerCallbackQuery(query.id, {
-            text: "❌ Не удалось сгенерировать ссылку. Проверь настройки X-Ray.",
-            show_alert: true,
-          });
-        }
+        // Генерируем QR код
+        const qrCodeBuffer = await QRCode.toBuffer(subscriptionUrl);
+        
+        let message = `🔗 <b>Ссылка подписки для ${client.name}</b>\n\n`;
+        message += `<code>${subscriptionUrl}</code>\n\n`;
+        message += `UUID: <code>${uuid}</code>`;
+        
+        await bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+        await bot.sendPhoto(chatId, qrCodeBuffer, {
+          caption: "📱 QR код для подключения"
+        });
+        
+        bot.answerCallbackQuery(query.id);
       } catch (error) {
-        console.error("Ошибка показа VLESS ссылки:", error);
+        console.error("Ошибка показа ссылки подписки:", error);
         bot.answerCallbackQuery(query.id, {
           text: `❌ Ошибка: ${error.message}`,
           show_alert: true,
@@ -5116,7 +5117,7 @@ bot.on("callback_query", async (query) => {
         const keyboard = {
           inline_keyboard: [
             [
-              { text: "🔗 Показать VLESS ссылку", callback_data: `show_vless_${uuid}` }
+              { text: "🔗 Показать ссылку подписки", callback_data: `show_vless_${uuid}` }
             ],
             [
               { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
