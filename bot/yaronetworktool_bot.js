@@ -287,7 +287,6 @@ bot.onText(/\/download/, async (msg) => {
       [{ text: "💻 Happ (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe" }],
       [{ text: "💻 Happ Releases (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases" }],
       [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
-      [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
       [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
       [{ text: "📱 Sing-box (Android)", url: "https://play.google.com/store/apps/details?id=io.nekohasekai.sfa&hl=ru" }],
       [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
@@ -299,8 +298,7 @@ bot.onText(/\/download/, async (msg) => {
     `📥 <b>Скачать VPN клиент</b>\n\n` +
       `<b>Windows:</b>\n` +
       `• <b>Happ</b> - Прямая ссылка или GitHub Releases\n` +
-      `• <b>Sing-box</b> - GitHub Releases\n` +
-      `• <b>Amnezia VPN</b> - Официальный сайт\n\n` +
+      `• <b>Sing-box</b> - GitHub Releases\n\n` +
       `<b>Android:</b>\n` +
       `• <b>Happ</b> - Google Play Store\n` +
       `• <b>Sing-box</b> - Google Play Store\n\n` +
@@ -1259,7 +1257,6 @@ bot.on("message", async (msg) => {
           [{ text: "💻 Happ (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe" }],
           [{ text: "💻 Happ Releases (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases" }],
           [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
-          [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
           [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
           [{ text: "📱 Sing-box (Android)", url: "https://play.google.com/store/apps/details?id=io.nekohasekai.sfa&hl=ru" }],
           [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
@@ -1271,8 +1268,7 @@ bot.on("message", async (msg) => {
         `📥 <b>Скачать VPN клиент</b>\n\n` +
           `<b>Windows:</b>\n` +
           `• <b>Happ</b> - Прямая ссылка или GitHub Releases\n` +
-          `• <b>Sing-box</b> - GitHub Releases\n` +
-          `• <b>Amnezia VPN</b> - Официальный сайт\n\n` +
+          `• <b>Sing-box</b> - GitHub Releases\n\n` +
           `<b>Android:</b>\n` +
           `• <b>Happ</b> - Google Play Store\n` +
           `• <b>Sing-box</b> - Google Play Store\n\n` +
@@ -1731,7 +1727,7 @@ bot.on("message", async (msg) => {
         message += `📱 <b>Рекомендуемые клиенты:</b>\n`;
         message += `• Android: Happ, Sing-box\n`;
         message += `• iOS: Happ\n`;
-        message += `• Windows: Happ, Sing-box, Amnezia\n\n`;
+        message += `• Windows: Happ, Sing-box\n\n`;
         message += `💡 Подписка содержит 7 протоколов с автоматическим переключением`;
         
         // Отправляем сообщение
