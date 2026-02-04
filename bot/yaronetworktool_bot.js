@@ -91,7 +91,8 @@ function getMainKeyboard(isAdminUser = false) {
       keyboard: [
         [{ text: '📊 Мой VPN' }, { text: '🔗 Моя ссылка' }],
         [{ text: '🔑 Запросить ключ' }, { text: '📝 Мои запросы' }],
-        [{ text: '💳 Оплата' }, { text: '📥 Скачать VPN' }],
+        // [{ text: '💳 Оплата' }, { text: '📥 Скачать VPN' }],
+        [{ text: '📥 Скачать VPN' }],
         [{ text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
@@ -1292,11 +1293,11 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    if (text === "💳 Оплата") {
-      // Показываем методы оплаты
-      showPaymentMethods(bot, chatId);
-      return;
-    }
+    // if (text === "💳 Оплата") {
+    //   // Показываем методы оплаты
+    //   showPaymentMethods(bot, chatId);
+    //   return;
+    // }
 
     if (isAdmin(userId)) {
       // Кнопки администратора
