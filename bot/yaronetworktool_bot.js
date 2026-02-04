@@ -283,37 +283,35 @@ bot.onText(/\/download/, async (msg) => {
   
   const keyboard = {
     inline_keyboard: [
-      [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
-      [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
-      [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
-      [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }],
+      [{ text: "💻 Happ (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe" }],
+      [{ text: "💻 Happ Releases (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases" }],
+      [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
       [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
-      [{ text: "💻 Amnezia GitHub", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+      [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
+      [{ text: "📱 Sing-box (Android)", url: "https://play.google.com/store/apps/details?id=io.nekohasekai.sfa&hl=ru" }],
+      [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
     ]
   };
   
   bot.sendMessage(
     chatId,
     `📥 <b>Скачать VPN клиент</b>\n\n` +
+      `<b>Windows:</b>\n` +
+      `• <b>Happ</b> - Прямая ссылка или GitHub Releases\n` +
+      `• <b>Sing-box</b> - GitHub Releases\n` +
+      `• <b>Amnezia VPN</b> - Официальный сайт\n\n` +
       `<b>Android:</b>\n` +
-      `• <b>v2rayNG</b> (рекомендуем) - GitHub Releases\n` +
-      `• <b>V2Box</b> - Google Play Store\n` +
-      `• <b>Hiddify</b> - Google Play Store\n\n` +
+      `• <b>Happ</b> - Google Play Store\n` +
+      `• <b>Sing-box</b> - Google Play Store\n\n` +
       `<b>iOS:</b>\n` +
-      `• <b>Streisand</b> - App Store\n` +
-      `• <b>FoXray</b> - App Store\n\n` +
-      `<b>Windows/Mac/Linux:</b>\n` +
-      `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
-      `• <b>v2rayNG</b> (Linux) - GitHub Releases\n` +
-      `• <b>Amnezia VPN</b> (только для ПК!) - Официальный сайт или GitHub\n\n` +
+      `• <b>Happ</b> - App Store\n\n` +
       `<b>Как подключиться:</b>\n` +
       `1. Установи приложение\n` +
-      `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
-      `3. В приложении нажми "+" → "Import from Clipboard"\n` +
-      `4. Вставь vless:// ссылку\n` +
+      `2. Получи ссылку подписки: /my_link или кнопка "🔗 Моя ссылка"\n` +
+      `3. В приложении добавь подписку (Subscription)\n` +
+      `4. Вставь ссылку и обнови\n` +
       `5. Подключись\n\n` +
-      `<i>⚠️ Amnezia работает ТОЛЬКО на ПК (Windows/Mac/Linux)!</i>\n` +
-      `<i>⚠️ На телефонах (Android/iOS) используй v2rayNG, V2Box или Streisand!</i>`,
+      `💡 <b>Подписка содержит 7 протоколов с автоматическим переключением</b>`,
     { 
       parse_mode: "HTML",
       reply_markup: keyboard
@@ -1257,37 +1255,35 @@ bot.on("message", async (msg) => {
     if (text === "📥 Скачать VPN") {
       const keyboard = {
         inline_keyboard: [
-          [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
-          [{ text: "📱 V2Box (Android)", url: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box" }],
-          [{ text: "🍎 Streisand (iOS)", url: "https://apps.apple.com/app/streisand/id6450534064" }],
-          [{ text: "💻 v2rayN (Windows)", url: "https://github.com/2dust/v2rayN/releases" }],
+          [{ text: "💻 Happ (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe" }],
+          [{ text: "💻 Happ Releases (Windows)", url: "https://github.com/Happ-proxy/happ-desktop/releases" }],
+          [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
           [{ text: "💻 Amnezia (ПК)", url: "https://m-1-12-3w5hsuiikq-ez.a.run.app/ru/downloads" }],
-          [{ text: "💻 Amnezia GitHub", url: "https://github.com/amnezia-vpn/amnezia-client/releases" }]
+          [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
+          [{ text: "📱 Sing-box (Android)", url: "https://play.google.com/store/apps/details?id=io.nekohasekai.sfa&hl=ru" }],
+          [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
         ]
       };
       
       bot.sendMessage(
         chatId,
         `📥 <b>Скачать VPN клиент</b>\n\n` +
+          `<b>Windows:</b>\n` +
+          `• <b>Happ</b> - Прямая ссылка или GitHub Releases\n` +
+          `• <b>Sing-box</b> - GitHub Releases\n` +
+          `• <b>Amnezia VPN</b> - Официальный сайт\n\n` +
           `<b>Android:</b>\n` +
-          `• <b>v2rayNG</b> (рекомендуем) - GitHub Releases\n` +
-          `• <b>V2Box</b> - Google Play Store\n` +
-          `• <b>Hiddify</b> - Google Play Store\n\n` +
+          `• <b>Happ</b> - Google Play Store\n` +
+          `• <b>Sing-box</b> - Google Play Store\n\n` +
           `<b>iOS:</b>\n` +
-          `• <b>Streisand</b> - App Store\n` +
-          `• <b>FoXray</b> - App Store\n\n` +
-          `<b>Windows/Mac/Linux:</b>\n` +
-          `• <b>v2rayN</b> (Windows) - GitHub Releases\n` +
-          `• <b>v2rayNG</b> (Linux) - GitHub Releases\n` +
-          `• <b>Amnezia VPN</b> (только для ПК!) - Официальный сайт или GitHub\n\n` +
+          `• <b>Happ</b> - App Store\n\n` +
           `<b>Как подключиться:</b>\n` +
           `1. Установи приложение\n` +
-          `2. Получи ключ: /my_link или кнопка "🔗 Моя ссылка"\n` +
-          `3. В приложении нажми "+" → "Import from Clipboard"\n` +
-          `4. Вставь vless:// ссылку\n` +
+          `2. Получи ссылку подписки: /my_link или кнопка "🔗 Моя ссылка"\n` +
+          `3. В приложении добавь подписку (Subscription)\n` +
+          `4. Вставь ссылку и обнови\n` +
           `5. Подключись\n\n` +
-          `<i>⚠️ Amnezia работает ТОЛЬКО на ПК (Windows/Mac/Linux)!</i>\n` +
-          `<i>⚠️ На телефонах (Android/iOS) используй v2rayNG, V2Box или Streisand!</i>`,
+          `💡 <b>Подписка содержит 7 протоколов с автоматическим переключением</b>`,
         { 
           parse_mode: "HTML",
           reply_markup: keyboard
