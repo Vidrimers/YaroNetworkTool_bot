@@ -1729,9 +1729,9 @@ bot.on("message", async (msg) => {
         message += `3. В клиенте добавь подписку (Subscription)\n`;
         message += `4. Вставь ссылку и обнови\n\n`;
         message += `📱 <b>Рекомендуемые клиенты:</b>\n`;
-        message += `• Android: v2rayNG, Hiddify Next\n`;
-        message += `• iOS: Streisand, Hiddify Next\n`;
-        message += `• Windows/Mac/Linux: Hiddify Next\n\n`;
+        message += `• Android: Happ, Sing-box\n`;
+        message += `• iOS: Happ\n`;
+        message += `• Windows: Happ, Sing-box, Amnezia\n\n`;
         message += `💡 Подписка содержит 7 протоколов с автоматическим переключением`;
         
         // Отправляем сообщение
