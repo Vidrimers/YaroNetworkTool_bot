@@ -3714,17 +3714,21 @@ bot.on("callback_query", async (query) => {
 
       // Выбор клиента для переименования
       if (data.startsWith("rename_select_")) {
+        console.log(`[RENAME] Обработка rename_select_ для пользователя ${userId}`);
         const uuid = data.replace("rename_select_", "");
+        console.log(`[RENAME] UUID клиента: ${uuid}`);
         
         try {
           const response = await apiClient.getClient(uuid);
           const client = response.client;
+          console.log(`[RENAME] Клиент найден: ${client.name}`);
           
           userStates.set(userId, {
             action: "rename_client",
             uuid: uuid,
             oldName: client.name
           });
+          console.log(`[RENAME] Состояние сохранено для пользователя ${userId}`);
           
           bot.editMessageText(
             `✏️ <b>Переименование клиента</b>\n\n` +
@@ -3737,10 +3741,11 @@ bot.on("callback_query", async (query) => {
               parse_mode: "HTML"
             }
           );
+          console.log(`[RENAME] Сообщение отредактировано`);
           
           bot.answerCallbackQuery(query.id);
         } catch (error) {
-          console.error("Ошибка получения клиента:", error);
+          console.error("[RENAME] Ошибка получения клиента:", error);
           bot.answerCallbackQuery(query.id, {
             text: "❌ Ошибка получения данных клиента",
             show_alert: true
