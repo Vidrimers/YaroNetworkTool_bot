@@ -1704,10 +1704,53 @@ bot.on("message", async (msg) => {
           ]
         };
 
-        bot.sendMessage(chatId, message, { 
+        bot.sendMessage(chatId, message, {
           parse_mode: "HTML",
           reply_markup: keyboard
         });
+      } else if (text === "🔗 Моя ссылка") {
+        // Для админа получаем клиента по telegram_id
+        const adminClient = await getClientByTelegramId(userId);
+        
+        if (!adminClient) {
+          bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
+          return;
+        }
+        
+        // Генерируем ссылку подписки
+        const subscriptionUrl = `https://${SERVER_IP}/subscription/${adminClient.uuid}`;
+        
+        let linkMessage = `🔗 <b>Ссылка подписки</b>\n\n`;
+        linkMessage += `<code>${subscriptionUrl}</code>\n\n`;
+        linkMessage += `<b>Как подключиться:</b>\n`;
+        linkMessage += `1. Скачай VPN клиент: /download\n`;
+        linkMessage += `2. Скопируй ссылку выше\n`;
+        linkMessage += `3. В клиенте добавь подписку (Subscription)\n`;
+        linkMessage += `4. Вставь ссылку и обнови\n\n`;
+        linkMessage += `📱 <b>Рекомендуемые клиенты:</b>\n`;
+        linkMessage += `• Android: Happ, Sing-box\n`;
+        linkMessage += `• iOS: Happ\n`;
+        linkMessage += `• Windows: Happ, Sing-box\n\n`;
+        linkMessage += `💡 Подписка содержит 7 протоколов с автоматическим переключением`;
+        
+        // Отправляем сообщение
+        bot.sendMessage(chatId, linkMessage, { parse_mode: "HTML" });
+
+        // Генерируем и отправляем QR код
+        try {
+          const qrBuffer = await QRCode.toBuffer(subscriptionUrl, {
+            errorCorrectionLevel: 'M',
+            type: 'png',
+            width: 512,
+            margin: 2
+          });
+
+          bot.sendPhoto(chatId, qrBuffer, {
+            caption: `📱 QR код подписки\n\nОтсканируй в VPN клиенте для быстрого добавления`
+          });
+        } catch (qrError) {
+          console.error('Ошибка генерации QR кода:', qrError);
+        }
       }
     } else {
       // Кнопки клиента
