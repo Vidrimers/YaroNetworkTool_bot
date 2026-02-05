@@ -2451,6 +2451,59 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
+    // Отмена переименования
+    if (data === "rename_cancel") {
+      bot.editMessageText("❌ Переименование отменено", {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+      });
+      userStates.delete(userId);
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    // Выбор клиента для переименования
+    if (data.startsWith("rename_select_")) {
+      console.log(`[RENAME] Обработка rename_select_ для пользователя ${userId}`);
+      const uuid = data.replace("rename_select_", "");
+      console.log(`[RENAME] UUID клиента: ${uuid}`);
+      
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+        console.log(`[RENAME] Клиент найден: ${client.name}`);
+        
+        userStates.set(userId, {
+          action: "rename_client",
+          uuid: uuid,
+          oldName: client.name
+        });
+        console.log(`[RENAME] Состояние сохранено для пользователя ${userId}`);
+        
+        bot.editMessageText(
+          `✏️ <b>Переименование клиента</b>\n\n` +
+            `Текущее имя: <b>${client.name}</b>\n` +
+            `UUID: <code>${uuid}</code>\n\n` +
+            `Введи новое имя:`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML"
+          }
+        );
+        console.log(`[RENAME] Сообщение отредактировано`);
+        
+        bot.answerCallbackQuery(query.id);
+      } catch (error) {
+        console.error("[RENAME] Ошибка получения клиента:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Ошибка получения данных клиента",
+          show_alert: true
+        });
+      }
+      return;
+    }
+
     if (data === "admin_client_info") {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
@@ -3682,6 +3735,7 @@ bot.on("callback_query", async (query) => {
     }
 
     // Удаление клиента
+    // Удаление клиента
     else if (data.startsWith("remove_")) {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
@@ -3698,59 +3752,6 @@ bot.on("callback_query", async (query) => {
         });
         userStates.delete(userId);
         bot.answerCallbackQuery(query.id);
-        return;
-      }
-
-      // Отмена переименования
-      if (data === "rename_cancel") {
-        bot.editMessageText("❌ Переименование отменено", {
-          chat_id: chatId,
-          message_id: query.message.message_id,
-        });
-        userStates.delete(userId);
-        bot.answerCallbackQuery(query.id);
-        return;
-      }
-
-      // Выбор клиента для переименования
-      if (data.startsWith("rename_select_")) {
-        console.log(`[RENAME] Обработка rename_select_ для пользователя ${userId}`);
-        const uuid = data.replace("rename_select_", "");
-        console.log(`[RENAME] UUID клиента: ${uuid}`);
-        
-        try {
-          const response = await apiClient.getClient(uuid);
-          const client = response.client;
-          console.log(`[RENAME] Клиент найден: ${client.name}`);
-          
-          userStates.set(userId, {
-            action: "rename_client",
-            uuid: uuid,
-            oldName: client.name
-          });
-          console.log(`[RENAME] Состояние сохранено для пользователя ${userId}`);
-          
-          bot.editMessageText(
-            `✏️ <b>Переименование клиента</b>\n\n` +
-              `Текущее имя: <b>${client.name}</b>\n` +
-              `UUID: <code>${uuid}</code>\n\n` +
-              `Введи новое имя:`,
-            {
-              chat_id: chatId,
-              message_id: query.message.message_id,
-              parse_mode: "HTML"
-            }
-          );
-          console.log(`[RENAME] Сообщение отредактировано`);
-          
-          bot.answerCallbackQuery(query.id);
-        } catch (error) {
-          console.error("[RENAME] Ошибка получения клиента:", error);
-          bot.answerCallbackQuery(query.id, {
-            text: "❌ Ошибка получения данных клиента",
-            show_alert: true
-          });
-        }
         return;
       }
 
