@@ -1626,13 +1626,11 @@ bot.on("message", async (msg) => {
           }
         );
       } else if (text === "📊 Мой VPN") {
-        // Для админа ищем клиента с именем "Админ"
-        const response = await apiClient.getClients();
-        const clients = response.clients || [];
-        const adminClient = clients.find(c => c.name === "Админ");
+        // Для админа ищем клиента по telegram_id
+        const adminClient = await getClientByTelegramId(userId);
 
         if (!adminClient) {
-          bot.sendMessage(chatId, "❌ Клиент 'Админ' не найден в системе");
+          bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
           return;
         }
 
