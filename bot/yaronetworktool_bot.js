@@ -232,6 +232,7 @@ bot.onText(/\/help/, async (msg) => {
         `/start - Главное меню\n` +
         `/add_client - Добавить клиента\n` +
         `/remove_client - Удалить клиента\n` +
+        `/rename_client - Переименовать клиента\n` +
         `/list_clients - Список всех клиентов\n` +
         `/client_info &lt;uuid&gt; - Информация о клиенте\n` +
         `/server_status - Статус сервера\n` +
@@ -481,6 +482,9 @@ bot.onText(/\/client_info (.+)/, async (msg, match) => {
           { text: "🔗 Показать ссылку подписки", callback_data: `show_vless_${uuid}` }
         ],
         [
+          { text: "✏️ Переименовать", callback_data: `rename_select_${uuid}` }
+        ],
+        [
           { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${uuid}` }
         ],
         [
@@ -563,6 +567,47 @@ bot.onText(/\/remove_client/, async (msg) => {
     });
   } catch (error) {
     console.error("Ошибка /remove_client:", error);
+    bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+  }
+});
+
+// Команда /rename_client - Переименовать клиента
+bot.onText(/\/rename_client/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAdmin(userId)) {
+    bot.sendMessage(chatId, "❌ Доступ запрещен");
+    return;
+  }
+
+  try {
+    const response = await apiClient.getClients();
+    const clients = response.clients || [];
+
+    if (clients.length === 0) {
+      bot.sendMessage(chatId, "📭 Клиенты не найдены");
+      return;
+    }
+
+    let message = "✏️ <b>Переименование клиента</b>\n\n";
+    message += "Выбери клиента для переименования:\n\n";
+
+    const keyboard = {
+      inline_keyboard: clients.map(client => [{
+        text: `${client.name} (${client.uuid.substring(0, 8)}...)`,
+        callback_data: `rename_select_${client.uuid}`
+      }])
+    };
+
+    keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "rename_cancel" }]);
+
+    bot.sendMessage(chatId, message, {
+      parse_mode: "HTML",
+      reply_markup: keyboard
+    });
+  } catch (error) {
+    console.error("Ошибка /rename_client:", error);
     bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
   }
 });
@@ -902,6 +947,49 @@ bot.on("message", async (msg) => {
     }
 
     // Обработка добавления клиента
+    // Обработка переименования клиента
+    if (userState.action === "rename_client") {
+      const newName = text.trim();
+      
+      if (!newName || newName.length < 2) {
+        bot.sendMessage(chatId, "❌ Имя должно содержать минимум 2 символа. Попробуй еще раз:");
+        return;
+      }
+      
+      if (newName.length > 50) {
+        bot.sendMessage(chatId, "❌ Имя слишком длинное (максимум 50 символов). Попробуй еще раз:");
+        return;
+      }
+      
+      try {
+        await apiClient.updateClient(userState.uuid, { name: newName });
+        
+        bot.sendMessage(
+          chatId,
+          `✅ <b>Клиент переименован</b>\n\n` +
+            `Старое имя: ${userState.oldName}\n` +
+            `Новое имя: <b>${newName}</b>\n` +
+            `UUID: <code>${userState.uuid}</code>\n\n` +
+            `💡 Подписка автоматически обновится с новым именем`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: getMainKeyboard(true)
+          }
+        );
+        
+        userStates.delete(userId);
+      } catch (error) {
+        console.error("Ошибка переименования клиента:", error);
+        bot.sendMessage(
+          chatId, 
+          `❌ Ошибка: ${error.message}`,
+          { reply_markup: getMainKeyboard(true) }
+        );
+        userStates.delete(userId);
+      }
+      return;
+    }
+
     if (userState.action === "add_client") {
       if (userState.step === "name") {
         userState.name = text;
@@ -1337,6 +1425,9 @@ bot.on("message", async (msg) => {
             [
               { text: "➕ Добавить клиента", callback_data: "admin_add_client" },
               { text: "🗑️ Удалить клиента", callback_data: "admin_remove_client" }
+            ],
+            [
+              { text: "✏️ Переименовать клиента", callback_data: "admin_rename_client" }
             ],
             [
               { text: "ℹ️ Информация о клиенте", callback_data: "admin_client_info" }
@@ -2309,6 +2400,47 @@ bot.on("callback_query", async (query) => {
       };
 
       keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "remove_cancel" }]);
+
+      bot.sendMessage(chatId, message, {
+        parse_mode: "HTML",
+        reply_markup: keyboard
+      });
+
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
+    if (data === "admin_rename_client") {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const response = await apiClient.getClients();
+      const clients = response.clients || [];
+
+      if (clients.length === 0) {
+        bot.answerCallbackQuery(query.id, {
+          text: "📭 Клиенты не найдены",
+          show_alert: true,
+        });
+        return;
+      }
+
+      let message = "✏️ <b>Переименование клиента</b>\n\n";
+      message += "Выбери клиента для переименования:\n\n";
+
+      const keyboard = {
+        inline_keyboard: clients.map(client => [{
+          text: `${client.name} (${client.uuid.substring(0, 8)}...)`,
+          callback_data: `rename_select_${client.uuid}`
+        }])
+      };
+
+      keyboard.inline_keyboard.push([{ text: "❌ Отмена", callback_data: "rename_cancel" }]);
 
       bot.sendMessage(chatId, message, {
         parse_mode: "HTML",
@@ -3566,6 +3698,54 @@ bot.on("callback_query", async (query) => {
         });
         userStates.delete(userId);
         bot.answerCallbackQuery(query.id);
+        return;
+      }
+
+      // Отмена переименования
+      if (data === "rename_cancel") {
+        bot.editMessageText("❌ Переименование отменено", {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+        });
+        userStates.delete(userId);
+        bot.answerCallbackQuery(query.id);
+        return;
+      }
+
+      // Выбор клиента для переименования
+      if (data.startsWith("rename_select_")) {
+        const uuid = data.replace("rename_select_", "");
+        
+        try {
+          const response = await apiClient.getClient(uuid);
+          const client = response.client;
+          
+          userStates.set(userId, {
+            action: "rename_client",
+            uuid: uuid,
+            oldName: client.name
+          });
+          
+          bot.editMessageText(
+            `✏️ <b>Переименование клиента</b>\n\n` +
+              `Текущее имя: <b>${client.name}</b>\n` +
+              `UUID: <code>${uuid}</code>\n\n` +
+              `Введи новое имя:`,
+            {
+              chat_id: chatId,
+              message_id: query.message.message_id,
+              parse_mode: "HTML"
+            }
+          );
+          
+          bot.answerCallbackQuery(query.id);
+        } catch (error) {
+          console.error("Ошибка получения клиента:", error);
+          bot.answerCallbackQuery(query.id, {
+            text: "❌ Ошибка получения данных клиента",
+            show_alert: true
+          });
+        }
         return;
       }
 
