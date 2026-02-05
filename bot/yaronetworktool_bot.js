@@ -290,6 +290,7 @@ bot.onText(/\/download/, async (msg) => {
       [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
       [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
       [{ text: "📱 Hiddify (Android)", url: "https://play.google.com/store/apps/details?id=app.hiddify.com" }],
+      [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
       [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
     ]
   };
@@ -302,7 +303,8 @@ bot.onText(/\/download/, async (msg) => {
       `• <b>Sing-box</b> - GitHub Releases\n\n` +
       `<b>Android:</b>\n` +
       `• <b>Happ</b> - Google Play Store\n` +
-      `• <b>Hiddify</b> - Google Play Store\n\n` +
+      `• <b>Hiddify</b> - Google Play Store\n` +
+      `• <b>v2rayNG</b> - GitHub Releases\n\n` +
       `<b>iOS:</b>\n` +
       `• <b>Happ</b> - App Store\n\n` +
       `<b>Как подключиться:</b>\n` +
@@ -1396,6 +1398,7 @@ bot.on("message", async (msg) => {
           [{ text: "💻 Sing-box (Windows)", url: "https://github.com/SagerNet/sing-box/releases/tag/v1.12.19" }],
           [{ text: "📱 Happ (Android)", url: "https://play.google.com/store/apps/details?id=com.happproxy&hl=ru" }],
           [{ text: "📱 Hiddify (Android)", url: "https://play.google.com/store/apps/details?id=app.hiddify.com" }],
+          [{ text: "📱 v2rayNG (Android)", url: "https://github.com/2dust/v2rayNG/releases" }],
           [{ text: "🍎 Happ (iOS)", url: "https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" }]
         ]
       };
@@ -1408,7 +1411,8 @@ bot.on("message", async (msg) => {
           `• <b>Sing-box</b> - GitHub Releases\n\n` +
           `<b>Android:</b>\n` +
           `• <b>Happ</b> - Google Play Store\n` +
-          `• <b>Hiddify</b> - Google Play Store\n\n` +
+          `• <b>Hiddify</b> - Google Play Store\n` +
+          `• <b>v2rayNG</b> - GitHub Releases\n\n` +
           `<b>iOS:</b>\n` +
           `• <b>Happ</b> - App Store\n\n` +
           `<b>Как подключиться:</b>\n` +
