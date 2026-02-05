@@ -81,7 +81,7 @@ function getMainKeyboard(isAdminUser = false) {
         [{ text: '👶 Малютки' }, { text: '📊 Статистика' }],
         [{ text: '📝 Запросы' }, { text: '⚙️ Сервер' }],
         [{ text: '🔧 Xray' }, { text: '📊 Мой VPN' }],
-        [{ text: '❓ Помощь' }]
+        [{ text: '🔗 Моя ссылка' }, { text: '❓ Помощь' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -1803,8 +1803,16 @@ bot.on("message", async (msg) => {
           reply_markup: keyboard
         });
       } else if (text === "🔗 Моя ссылка") {
+        // Получаем клиента (для админа тоже)
+        const userClient = isAdmin(userId) ? await getClientByTelegramId(userId) : client;
+        
+        if (!userClient) {
+          bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
+          return;
+        }
+        
         // Генерируем ссылку подписки
-        const subscriptionUrl = `https://${SERVER_IP}/subscription/${client.uuid}`;
+        const subscriptionUrl = `https://${SERVER_IP}/subscription/${userClient.uuid}`;
         
         let message = `🔗 <b>Ссылка подписки</b>\n\n`;
         message += `<code>${subscriptionUrl}</code>\n\n`;
