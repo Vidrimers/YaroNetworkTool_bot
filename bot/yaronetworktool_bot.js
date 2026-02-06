@@ -1802,6 +1802,12 @@ bot.on("message", async (msg) => {
           inline_keyboard: [
             [
               { text: "🔍 Проверка VPN", callback_data: "check_vpn_status" }
+            ],
+            [
+              { text: "📌 Какой протокол выбрать", callback_data: "protocol_guide" }
+            ],
+            [
+              { text: "🏦 Почему банки не работают через VPN", callback_data: "banks_vpn_info" }
             ]
           ]
         };
@@ -1939,6 +1945,12 @@ bot.on("message", async (msg) => {
           inline_keyboard: [
             [
               { text: "🔍 Проверка VPN", callback_data: "check_vpn_status" }
+            ],
+            [
+              { text: "📌 Какой протокол выбрать", callback_data: "protocol_guide" }
+            ],
+            [
+              { text: "🏦 Почему банки не работают через VPN", callback_data: "banks_vpn_info" }
             ]
           ]
         };
@@ -3561,6 +3573,73 @@ bot.on("callback_query", async (query) => {
           show_alert: true,
         });
       }
+      return;
+    }
+
+    // Гайд по выбору протокола
+    if (data === "protocol_guide") {
+      const protocolMessage = 
+        `📌 <b>Какой протокол выбрать</b>\n\n` +
+        `🟢 <b>SS2022 — для игр и низкого пинга</b>\n` +
+        `Самый быстрый. Лучший для игр, стримов, звонков.\n\n` +
+        `🔵 <b>VLESS gRPC — универсальный</b>\n` +
+        `Хорошая скорость и стабильность. Подходит почти для всего.\n\n` +
+        `🟣 <b>VLESS Reality — максимальный обход DPI</b>\n` +
+        `Когда важно, чтобы работало всегда и везде.\n\n` +
+        `🟠 <b>VLESS WS — запасной вариант</b>\n` +
+        `Медленнее, но работает там, где другие не проходят.\n\n` +
+        `🔴 <b>Trojan — скрытность</b>\n` +
+        `Максимальная маскировка, но высокий пинг.`;
+
+      bot.editMessageText(protocolMessage, {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        parse_mode: "HTML"
+      });
+
+      bot.answerCallbackQuery(query.id, {
+        text: "📌 Выбирай протокол по задаче",
+        show_alert: false
+      });
+      return;
+    }
+
+    // Информация про банки и VPN
+    if (data === "banks_vpn_info") {
+      const banksMessage = 
+        `🏦 <b>Почему банки не работают через VPN</b>\n\n` +
+        `1️⃣ <b>🔍 DPI — это про блокировки сайтов</b>\n` +
+        `Reality / SS2022 / gRPC обходят госфильтры, делая трафик похожим на обычный HTTPS.\n` +
+        `Но банки блокируют не сайты, а подозрительных пользователей.\n\n` +
+        `2️⃣ <b>🕵️ Банки видят, что вход идёт через VPN</b>\n` +
+        `Им всё равно, какой протокол используется. Они проверяют:\n` +
+        `🌐 IP‑адрес (VPN‑пул = подозрительно)\n` +
+        `📍 геолокацию (не совпадает с регионом клиента)\n` +
+        `🔄 частую смену IP\n` +
+        `🏢 тип сети (дата‑центр = риск)\n` +
+        `📱 fingerprint устройства\n` +
+        `🧠 поведение в приложении\n\n` +
+        `VPN = дата‑центр → система считает вход потенциально опасным.\n\n` +
+        `3️⃣ <b>🛡 Банки используют анти‑фрод, а не DPI</b>\n` +
+        `Анти‑фрод ищет подозрительные входы, а не запрещённые сайты.\n` +
+        `VPN‑трафик попадает под критерии риска.\n\n` +
+        `4️⃣ <b>🏠 Банкам нужен "домашний" IP</b>\n` +
+        `Важно, чтобы:\n` +
+        `📍 вход был из твоего города\n` +
+        `🏠 IP принадлежал обычному провайдеру\n` +
+        `👥 IP не использовался сотнями людей\n\n` +
+        `VPN‑сервер = дата‑центр → автоматическая блокировка.`;
+
+      bot.editMessageText(banksMessage, {
+        chat_id: chatId,
+        message_id: query.message.message_id,
+        parse_mode: "HTML"
+      });
+
+      bot.answerCallbackQuery(query.id, {
+        text: "🏦 Отключай VPN для банков",
+        show_alert: false
+      });
       return;
     }
 
