@@ -794,19 +794,44 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
             return;
           }
           
-          let message = `⏳ <b>Ожидающие запросы (${pendingRequests.length}):</b>\n\n`;
+          // Отправляем каждый запрос отдельным сообщением с кнопками
+          for (const req of pendingRequests) {
+            const clientName = req.client_name || `UUID: ${req.client_uuid?.substring(0, 8)}...` || "Неизвестный";
+            const months = req.requested_months;
+            
+            let message = `🔔 <b>Запрос на продление</b>\n\n`;
+            message += `👤 Клиент: <b>${clientName}</b>\n`;
+            message += `🆔 UUID: <code>${req.client_uuid}</code>\n`;
+            message += `📅 Запрошено: ${months} ${months === 1 ? 'месяц' : months < 5 ? 'месяца' : 'месяцев'} (${req.requested_days} дней)\n`;
+            message += `📆 Дата запроса: ${formatDate(req.created_at)}\n`;
+            message += `🆔 ID запроса: <code>${req.id}</code>\n\n`;
+            message += `Выбери действие:`;
+            
+            const keyboard = {
+              inline_keyboard: [
+                [
+                  { text: `✅ Одобрить ${months} мес.`, callback_data: `approve_${req.id}_${months}` }
+                ],
+                [
+                  { text: "✏️ Изменить период", callback_data: `period_custom_${req.id}` }
+                ],
+                [
+                  { text: "❌ Отклонить", callback_data: `deny_${req.id}` }
+                ]
+              ]
+            };
+            
+            await bot.sendMessage(chatId, message, {
+              parse_mode: "HTML",
+              reply_markup: keyboard
+            });
+          }
           
-          pendingRequests.forEach((req, i) => {
-            message += `${i + 1}. <b>${req.client_name}</b>\n`;
-            message += `   Запрошено: ${req.requested_months} мес. (${req.requested_days} дней)\n`;
-            message += `   Дата: ${formatDate(req.created_at)}\n`;
-            message += `   ID: <code>${req.id}</code>\n\n`;
-          });
-          
-          await bot.sendMessage(chatId, message, {
+          // Отправляем кнопку "Назад" отдельным сообщением
+          await bot.sendMessage(chatId, `⏳ <b>Всего ожидающих запросов: ${pendingRequests.length}</b>`, {
             parse_mode: "HTML",
             reply_markup: {
-              inline_keyboard: [[{ text: "◀️ Назад", callback_data: "menu_requests" }]]
+              inline_keyboard: [[{ text: "◀️ Назад в меню", callback_data: "menu_requests" }]]
             }
           });
         } catch (error) {
@@ -843,7 +868,8 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           let message = `✅ <b>Одобренные запросы (${approvedRequests.length}):</b>\n\n`;
           
           approvedRequests.slice(0, 10).forEach((req, i) => {
-            message += `${i + 1}. <b>${req.client_name}</b>\n`;
+            const clientName = req.client_name || `UUID: ${req.client_uuid?.substring(0, 8)}...` || "Неизвестный";
+            message += `${i + 1}. <b>${clientName}</b>\n`;
             message += `   Запрошено: ${req.requested_months} мес.\n`;
             message += `   Одобрено: ${req.approved_days} дней\n`;
             message += `   Дата: ${formatDate(req.created_at)}\n\n`;
@@ -893,7 +919,8 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           let message = `❌ <b>Отклоненные запросы (${deniedRequests.length}):</b>\n\n`;
           
           deniedRequests.slice(0, 10).forEach((req, i) => {
-            message += `${i + 1}. <b>${req.client_name}</b>\n`;
+            const clientName = req.client_name || `UUID: ${req.client_uuid?.substring(0, 8)}...` || "Неизвестный";
+            message += `${i + 1}. <b>${clientName}</b>\n`;
             message += `   Запрошено: ${req.requested_months} мес.\n`;
             if (req.denial_reason) {
               message += `   Причина: ${req.denial_reason}\n`;

@@ -1174,8 +1174,19 @@ bot.on("message", async (msg) => {
         const response = await apiClient.approveExtensionRequest(userState.requestId, days, userId);
         const request = response.request;
         
+        // Получаем имя клиента по UUID
+        let clientName = "Неизвестный";
+        try {
+          const clientResponse = await apiClient.getClient(request.client_uuid);
+          clientName = clientResponse.client.name;
+        } catch (err) {
+          console.error("Ошибка получения имени клиента:", err);
+          clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
+        }
+        
         bot.editMessageText(
           `✅ <b>Запрос одобрен с измененным периодом</b>\n\n` +
+            `Клиент: <b>${clientName}</b>\n` +
             `UUID: <code>${request.client_uuid}</code>\n` +
             `Период: ${days} дней\n\n` +
             `Подписка продлена автоматически.`,
@@ -2089,7 +2100,7 @@ bot.on("callback_query", async (query) => {
     // ОБРАБОТЧИКИ МЕНЮ (инлайн-кнопки из /menu)
     // ========================================================================
     
-    if (data.startsWith("menu_") || data === "back_to_menu") {
+    if (data.startsWith("menu_") || data.startsWith("admin_") || data === "back_to_menu") {
       await handleMenuCallback(bot, query, data, isAdmin, apiClient, getClientByTelegramId, formatDate, formatTraffic);
       return;
     }
@@ -3772,8 +3783,19 @@ bot.on("callback_query", async (query) => {
         const response = await apiClient.approveExtensionRequest(requestId, null, userId);
         const request = response.request;
 
+        // Получаем имя клиента по UUID
+        let clientName = "Неизвестный";
+        try {
+          const clientResponse = await apiClient.getClient(request.client_uuid);
+          clientName = clientResponse.client.name;
+        } catch (err) {
+          console.error("Ошибка получения имени клиента:", err);
+          clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
+        }
+
         bot.editMessageText(
           `✅ <b>Запрос одобрен</b>\n\n` +
+            `Клиент: <b>${clientName}</b>\n` +
             `UUID: <code>${request.client_uuid}</code>\n` +
             `Период: ${months} ${months === 1 ? "месяц" : "месяцев"} (${request.approved_days} дней)\n\n` +
             `Подписка продлена автоматически.`,
@@ -3822,8 +3844,19 @@ bot.on("callback_query", async (query) => {
         const response = await apiClient.denyExtensionRequest(requestId, "Отклонено администратором", userId);
         const request = response.request;
 
+        // Получаем имя клиента по UUID
+        let clientName = "Неизвестный";
+        try {
+          const clientResponse = await apiClient.getClient(request.client_uuid);
+          clientName = clientResponse.client.name;
+        } catch (err) {
+          console.error("Ошибка получения имени клиента:", err);
+          clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
+        }
+
         bot.editMessageText(
           `❌ <b>Запрос отклонен</b>\n\n` +
+            `Клиент: <b>${clientName}</b>\n` +
             `UUID: <code>${request.client_uuid}</code>`,
           {
             chat_id: chatId,
@@ -3948,9 +3981,20 @@ bot.on("callback_query", async (query) => {
         const response = await apiClient.approveExtensionRequest(requestId, days, userId);
         const request = response.request;
         
+        // Получаем имя клиента по UUID
+        let clientName = "Неизвестный";
+        try {
+          const clientResponse = await apiClient.getClient(request.client_uuid);
+          clientName = clientResponse.client.name;
+        } catch (err) {
+          console.error("Ошибка получения имени клиента:", err);
+          clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
+        }
+        
         bot.sendMessage(
           chatId,
           `✅ <b>Запрос одобрен с измененным периодом</b>\n\n` +
+            `Клиент: <b>${clientName}</b>\n` +
             `UUID: <code>${request.client_uuid}</code>\n` +
             `Период: ${days} дней\n\n` +
             `Подписка продлена автоматически.`,
