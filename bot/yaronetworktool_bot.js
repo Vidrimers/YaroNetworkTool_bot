@@ -13,6 +13,7 @@ import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
 import { getActiveDevices } from "./device-monitor.js";
 import { showPaymentMethods, showSubscriptionPlans, handlePaymentPlan } from "./payments/payment-handler.js";
+import { handleMenuCommand, handleMenuCallback } from "./menu-handlers.js";
 
 const execAsync = promisify(exec);
 
@@ -73,38 +74,49 @@ function isAdmin(userId) {
   return userId === TELEGRAM_ADMIN_ID;
 }
 
-// Главная клавиатура
-function getMainKeyboard(isAdminUser = false) {
-  if (isAdminUser) {
-    return {
-      keyboard: [
-        [{ text: '👶 Малютки' }, { text: '📊 Статистика' }],
-        [{ text: '📝 Запросы' }, { text: '⚙️ Сервер' }],
-        [{ text: '🔧 Xray' }, { text: '📊 Мой VPN' }],
-        [{ text: '🔗 Моя ссылка' }, { text: '❓ Помощь' }]
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false
-    };
-  } else {
-    return {
-      keyboard: [
-        [{ text: '📊 Мой VPN' }, { text: '🔗 Моя ссылка' }],
-        [{ text: '🔑 Запросить ключ' }, { text: '📝 Мои запросы' }],
-        // [{ text: '💳 Оплата' }, { text: '📥 Скачать VPN' }],
-        [{ text: '📥 Скачать VPN' }],
-        [{ text: '❓ Помощь' }]
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false
-    };
-  }
+// Функция для удаления keyboard кнопок (заменяет getMainKeyboard)
+function removeKeyboard() {
+  return {
+    remove_keyboard: true
+  };
 }
 
 console.log("\n[YaroNetworkTool VPN Bot] Запущен\n");
 console.log(`Admin ID: ${TELEGRAM_ADMIN_ID}`);
 console.log(`Server IP: ${SERVER_IP}`);
 console.log(`API URL: ${apiClient.baseURL}\n`);
+
+// ============================================================================
+// НАСТРОЙКА BOT MENU BUTTON И КОМАНД
+// ============================================================================
+
+// Настраиваем кнопку меню бота (кнопка ≡ в чате) и список команд
+(async () => {
+  try {
+    // Устанавливаем кнопку меню для всех личных чатов
+    await bot.setChatMenuButton({
+      chat_id: undefined, // undefined = для всех личных чатов
+      menu_button: {
+        type: 'commands'
+      }
+    });
+    
+    // Устанавливаем команды бота чтобы они отображались в меню
+    await bot.setMyCommands([
+      { command: 'menu', description: '📱 Главное меню' },
+      { command: 'start', description: '🚀 Начать работу' },
+      { command: 'my_vpn', description: '📊 Моя статистика VPN' },
+      { command: 'my_link', description: '🔗 Ссылка подключения' },
+      { command: 'download', description: '📥 Скачать VPN клиент' },
+      { command: 'help', description: '❓ Справка' },
+      { command: 'terms', description: '📋 Правила использования' }
+    ]);
+    
+    console.log("✅ Кнопка меню бота и команды настроены");
+  } catch (error) {
+    console.error("⚠️ Ошибка настройки кнопки меню:", error.message);
+  }
+})();
 
 // ============================================================================
 // ОБРАБОТЧИКИ КОМАНД
@@ -123,15 +135,16 @@ bot.onText(/\/start/, async (msg) => {
         chatId,
         `👋 Добро пожаловать, <b>Администратор</b>!\n\n` +
           `🎛️ <b>Панель управления VPN сервером</b>\n\n` +
-          `Используй кнопки ниже для управления:\n\n` +
-          `👥 <b>Клиенты</b> - Управление VPN клиентами\n` +
+          `Используй команду /menu для открытия главного меню\n\n` +
+          `<b>Доступные разделы:</b>\n` +
+          `👥 <b>Малютки</b> - Управление VPN клиентами\n` +
           `📊 <b>Статистика</b> - Статистика сервера и клиентов\n` +
           `📝 <b>Запросы</b> - Запросы на продление подписки\n` +
           `⚙️ <b>Сервер</b> - Статус и управление сервером\n` +
           `❓ <b>Помощь</b> - Справка по командам`,
         {
           parse_mode: "HTML",
-          reply_markup: getMainKeyboard(true),
+          reply_markup: removeKeyboard(),
         }
       );
     } else {
@@ -148,7 +161,8 @@ bot.onText(/\/start/, async (msg) => {
           chatId,
           `👋 Добро пожаловать, <b>${client.name}</b>!\n\n` +
             `📊 <b>Твой личный кабинет VPN</b>\n\n` +
-            `Используй кнопки ниже:\n\n` +
+            `Используй команду /menu для открытия главного меню\n\n` +
+            `<b>Доступные разделы:</b>\n` +
             `📊 <b>Мой VPN</b> - Статистика использования\n` +
             `🔗 <b>Моя ссылка</b> - Ссылка подключения и QR код\n` +
             `🔑 <b>Запросить ключ</b> - Продлить подписку\n` +
@@ -156,7 +170,7 @@ bot.onText(/\/start/, async (msg) => {
             `❓ <b>Помощь</b> - Справка`,
           {
             parse_mode: "HTML",
-            reply_markup: getMainKeyboard(false),
+            reply_markup: removeKeyboard(),
           }
         );
         
@@ -277,6 +291,11 @@ bot.onText(/\/help/, async (msg) => {
       }
     );
   }
+});
+
+// Команда /menu - Главное меню с инлайн-кнопками
+bot.onText(/\/menu/, async (msg) => {
+  await handleMenuCommand(bot, msg, isAdmin, apiClient);
 });
 
 // Команда /download - Скачать VPN клиент
@@ -706,11 +725,6 @@ bot.onText(/\/my_vpn/, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
-  if (isAdmin(userId)) {
-    bot.sendMessage(chatId, "ℹ️ Эта команда доступна только для клиентов");
-    return;
-  }
-
   try {
     const client = await getClientByTelegramId(userId);
 
@@ -786,11 +800,6 @@ bot.onText(/\/my_vpn/, async (msg) => {
 bot.onText(/\/my_link/, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-
-  if (isAdmin(userId)) {
-    bot.sendMessage(chatId, "ℹ️ Эта команда доступна только для клиентов");
-    return;
-  }
 
   try {
     const client = await getClientByTelegramId(userId);
@@ -957,7 +966,7 @@ bot.on("message", async (msg) => {
               (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>` : ''),
             { 
               parse_mode: "HTML",
-              reply_markup: getMainKeyboard(true)
+              reply_markup: removeKeyboard()
             }
           );
           
@@ -989,7 +998,7 @@ bot.on("message", async (msg) => {
         } catch (error) {
           console.error("Ошибка создания доступа:", error);
           bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
-            reply_markup: getMainKeyboard(true)
+            reply_markup: removeKeyboard()
           });
           userStates.delete(userId);
         }
@@ -1024,7 +1033,7 @@ bot.on("message", async (msg) => {
             `💡 Подписка автоматически обновится с новым именем`,
           { 
             parse_mode: "HTML",
-            reply_markup: getMainKeyboard(true)
+            reply_markup: removeKeyboard()
           }
         );
         
@@ -1034,7 +1043,7 @@ bot.on("message", async (msg) => {
         bot.sendMessage(
           chatId, 
           `❌ Ошибка: ${error.message}`,
-          { reply_markup: getMainKeyboard(true) }
+          { reply_markup: removeKeyboard() }
         );
         userStates.delete(userId);
       }
@@ -1117,7 +1126,7 @@ bot.on("message", async (msg) => {
               (vlessLink ? `\n\n🔗 <b>Ссылка для подключения:</b>\n<code>${vlessLink}</code>` : ''),
             { 
               parse_mode: "HTML",
-              reply_markup: getMainKeyboard(true)
+              reply_markup: removeKeyboard()
             }
           );
           
@@ -1143,7 +1152,7 @@ bot.on("message", async (msg) => {
         } catch (error) {
           console.error("Ошибка создания клиента:", error);
           bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
-            reply_markup: getMainKeyboard(true)
+            reply_markup: removeKeyboard()
           });
           userStates.delete(userId);
         }
@@ -1223,7 +1232,7 @@ bot.on("message", async (msg) => {
             `📝 Причина: ${reason}${blockInfo}`,
           { 
             parse_mode: "HTML",
-            reply_markup: getMainKeyboard(true)
+            reply_markup: removeKeyboard()
           }
         );
 
@@ -1250,7 +1259,7 @@ bot.on("message", async (msg) => {
       } catch (error) {
         console.error("Ошибка выдачи предупреждения:", error);
         bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
-          reply_markup: getMainKeyboard(true)
+          reply_markup: removeKeyboard()
         });
         userStates.delete(userId);
       }
@@ -1264,7 +1273,7 @@ bot.on("message", async (msg) => {
       // Проверка на отмену
       if (priceInput.toLowerCase() === '/cancel' || priceInput.toLowerCase() === 'отмена') {
         bot.sendMessage(chatId, "❌ Отменено", {
-          reply_markup: getMainKeyboard(true)
+          reply_markup: removeKeyboard()
         });
         userStates.delete(userId);
         return;
@@ -1292,7 +1301,7 @@ bot.on("message", async (msg) => {
             `Клиент будет видеть эту цену при оплате через Kaspa.`,
           { 
             parse_mode: "HTML",
-            reply_markup: getMainKeyboard(true)
+            reply_markup: removeKeyboard()
           }
         );
         
@@ -1315,7 +1324,7 @@ bot.on("message", async (msg) => {
       } catch (error) {
         console.error("Ошибка установки цены:", error);
         bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`, {
-          reply_markup: getMainKeyboard(true)
+          reply_markup: removeKeyboard()
         });
         userStates.delete(userId);
       }
@@ -2077,6 +2086,15 @@ bot.on("callback_query", async (query) => {
 
   try {
     // ========================================================================
+    // ОБРАБОТЧИКИ МЕНЮ (инлайн-кнопки из /menu)
+    // ========================================================================
+    
+    if (data.startsWith("menu_") || data === "back_to_menu") {
+      await handleMenuCallback(bot, query, data, isAdmin, apiClient, getClientByTelegramId, formatDate, formatTraffic);
+      return;
+    }
+    
+    // ========================================================================
     // ОБРАБОТЧИКИ ПЛАТЕЖЕЙ
     // ========================================================================
     
@@ -2371,7 +2389,7 @@ bot.on("callback_query", async (query) => {
           `❓ <b>Помощь</b> - Справка`,
         {
           parse_mode: "HTML",
-          reply_markup: getMainKeyboard(false),
+          reply_markup: removeKeyboard(),
         }
       );
 
@@ -4536,13 +4554,13 @@ bot.on("callback_query", async (query) => {
       
       console.log(`[BACK_TO_MAIN] Sending keyboard to user ${userId}`);
       
-      // Отправляем сообщение с keyboard
-      bot.sendMessage(chatId, "Выбери действие:", {
-        reply_markup: getMainKeyboard(isAdmin(userId))
+      // Вместо keyboard отправляем сообщение с инструкцией использовать /menu
+      bot.sendMessage(chatId, "Используй команду /menu для открытия главного меню", {
+        reply_markup: removeKeyboard()
       }).then(() => {
-        console.log(`[BACK_TO_MAIN] Keyboard sent successfully to user ${userId}`);
+        console.log(`[BACK_TO_MAIN] Сообщение отправлено пользователю ${userId}`);
       }).catch((err) => {
-        console.error(`[BACK_TO_MAIN] Error sending keyboard:`, err);
+        console.error(`[BACK_TO_MAIN] Ошибка отправки сообщения:`, err);
       });
       
       userStates.delete(userId);
@@ -5546,7 +5564,7 @@ bot.on("callback_query", async (query) => {
       bot.sendMessage(
         chatId,
         "❌ Добавление клиента отменено",
-        { reply_markup: getMainKeyboard(true) }
+        { reply_markup: removeKeyboard() }
       );
       return;
     }
