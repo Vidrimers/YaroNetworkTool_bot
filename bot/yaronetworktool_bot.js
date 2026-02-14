@@ -2100,7 +2100,7 @@ bot.on("callback_query", async (query) => {
     // ОБРАБОТЧИКИ МЕНЮ (инлайн-кнопки из /menu)
     // ========================================================================
     
-    if (data.startsWith("menu_") || data.startsWith("admin_") || data === "back_to_menu") {
+    if (data.startsWith("menu_") || data === "back_to_menu") {
       await handleMenuCallback(bot, query, data, isAdmin, apiClient, getClientByTelegramId, formatDate, formatTraffic);
       return;
     }
