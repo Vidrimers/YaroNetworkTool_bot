@@ -32,10 +32,13 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
         ],
         [
           { text: '🔧 Xray', callback_data: 'menu_xray' },
-          { text: '📊 Мой VPN', callback_data: 'menu_my_vpn' }
+          { text: '📢 Объявление', callback_data: 'menu_announcement' }
         ],
         [
-          { text: '🔗 Моя ссылка', callback_data: 'menu_my_link' },
+          { text: '📊 Мой VPN', callback_data: 'menu_my_vpn' },
+          { text: '🔗 Моя ссылка', callback_data: 'menu_my_link' }
+        ],
+        [
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ]
       ];
@@ -946,6 +949,42 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
             }
           });
         }
+        break;
+
+      // ========================================================================
+      // ОБРАБОТЧИК ОБЪЯВЛЕНИЙ (РАССЫЛКА ВСЕМ ПОЛЬЗОВАТЕЛЯМ)
+      // ========================================================================
+
+      case 'menu_announcement':
+        // Рассылка объявления всем пользователям (только для админа)
+        if (!isAdmin(userId)) {
+          await bot.sendMessage(chatId, "❌ Доступ запрещен");
+          return;
+        }
+        
+        await bot.sendMessage(
+          chatId,
+          `📢 <b>Рассылка объявления</b>\n\n` +
+            `Напишите текст объявления, которое будет отправлено всем пользователям бота.\n\n` +
+            `<i>Поддерживается HTML форматирование:</i>\n` +
+            `<code>&lt;b&gt;жирный&lt;/b&gt;</code>\n` +
+            `<code>&lt;i&gt;курсив&lt;/i&gt;</code>\n` +
+            `<code>&lt;code&gt;код&lt;/code&gt;</code>\n\n` +
+            `Отправьте текст объявления следующим сообщением.`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [[{ text: "◀️ Отмена", callback_data: "back_to_menu" }]]
+            }
+          }
+        );
+        
+        // Устанавливаем флаг ожидания объявления
+        // Сохраняем в глобальной переменной или базе данных
+        if (!global.awaitingAnnouncement) {
+          global.awaitingAnnouncement = {};
+        }
+        global.awaitingAnnouncement[userId] = true;
         break;
 
       // ========================================================================

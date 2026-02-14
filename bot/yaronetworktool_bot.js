@@ -66,6 +66,11 @@ function formatTraffic(gb) {
 // Состояния пользователей для интерактивных команд
 const userStates = new Map();
 
+// Глобальная переменная для отслеживания ожидания объявлений от админа
+if (!global.awaitingAnnouncement) {
+  global.awaitingAnnouncement = {};
+}
+
 // Проверка прав администратора
 function isAdmin(userId) {
   if (!TELEGRAM_ADMIN_ID) {
@@ -903,6 +908,105 @@ bot.on("message", async (msg) => {
   if (text && text.startsWith("/")) {
     return;
   }
+
+  // ============================================================================
+  // ОБРАБОТКА РАССЫЛКИ ОБЪЯВЛЕНИЙ
+  // ============================================================================
+  
+  // Проверяем ожидает ли админ ввода текста объявления
+  if (global.awaitingAnnouncement && global.awaitingAnnouncement[userId]) {
+    if (!isAdmin(userId)) {
+      await bot.sendMessage(chatId, "❌ Доступ запрещен");
+      delete global.awaitingAnnouncement[userId];
+      return;
+    }
+    
+    // Получаем текст объявления
+    const announcementText = text;
+    
+    // Удаляем флаг ожидания
+    delete global.awaitingAnnouncement[userId];
+    
+    try {
+      // Получаем всех клиентов с Telegram ID
+      const response = await apiClient.getClients();
+      const clients = response.clients || [];
+      const telegramUsers = clients.filter(c => c.telegram_id).map(c => c.telegram_id);
+      
+      // Добавляем админа в список если его нет
+      if (!telegramUsers.includes(TELEGRAM_ADMIN_ID)) {
+        telegramUsers.push(TELEGRAM_ADMIN_ID);
+      }
+      
+      // Удаляем дубликаты
+      const uniqueUsers = [...new Set(telegramUsers)];
+      
+      await bot.sendMessage(
+        chatId,
+        `📢 <b>Начинаю рассылку объявления...</b>\n\n` +
+          `Получателей: ${uniqueUsers.length}\n\n` +
+          `<i>Предпросмотр:</i>\n` +
+          `━━━━━━━━━━━━━━━━\n` +
+          announcementText +
+          `\n━━━━━━━━━━━━━━━━`,
+        { parse_mode: "HTML" }
+      );
+      
+      // Рассылаем объявление всем пользователям
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const telegramId of uniqueUsers) {
+        try {
+          await bot.sendMessage(
+            telegramId,
+            `📢 <b>Объявление от администратора</b>\n\n` + announcementText,
+            { parse_mode: "HTML" }
+          );
+          successCount++;
+          
+          // Небольшая задержка чтобы не превысить лимиты Telegram API
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`Ошибка отправки объявления пользователю ${telegramId}:`, error.message);
+          failCount++;
+        }
+      }
+      
+      // Отправляем отчет админу
+      await bot.sendMessage(
+        chatId,
+        `✅ <b>Рассылка завершена!</b>\n\n` +
+          `Успешно: ${successCount}\n` +
+          `Ошибок: ${failCount}\n` +
+          `Всего: ${uniqueUsers.length}`,
+        { 
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [[{ text: "◀️ Вернуться в меню", callback_data: "back_to_menu" }]]
+          }
+        }
+      );
+      
+    } catch (error) {
+      console.error("Ошибка рассылки объявления:", error);
+      await bot.sendMessage(
+        chatId,
+        `❌ Ошибка при рассылке объявления: ${error.message}`,
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: "◀️ Вернуться в меню", callback_data: "back_to_menu" }]]
+          }
+        }
+      );
+    }
+    
+    return;
+  }
+
+  // ============================================================================
+  // ОБРАБОТКА СОСТОЯНИЙ ПОЛЬЗОВАТЕЛЯ
+  // ============================================================================
 
   // Обработка состояний пользователя
   const userState = userStates.get(userId);
