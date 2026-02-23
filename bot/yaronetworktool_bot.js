@@ -5447,48 +5447,126 @@ bot.on("callback_query", async (query) => {
         
         await bot.sendMessage(chatId, infoMessage, { parse_mode: "HTML" });
         
-        // 2. Base64 подписка
-        if (base64Subscription) {
-          let base64Message = `📋 <b>Base64 подписка</b>\n\n`;
-          base64Message += `<code>${base64Subscription}</code>\n\n`;
-          base64Message += `<i>Скопируй и импортируй в VPN-клиент</i>`;
-          
-          await bot.sendMessage(chatId, base64Message, { parse_mode: "HTML" });
-        }
-        
-        // 3. Отдельные ссылки (по 3 штуки)
-        if (allLinks.length > 0) {
-          await bot.sendMessage(chatId, `🔗 <b>Отдельные ссылки подключения:</b>`, { parse_mode: "HTML" });
-          
-          for (let i = 0; i < allLinks.length; i += 3) {
-            const chunk = allLinks.slice(i, i + 3);
-            let linksMessage = '';
-            
-            chunk.forEach((link, idx) => {
-              const linkNum = i + idx + 1;
-              // Извлекаем название из ссылки
-              const nameMatch = link.match(/#(.+)$/);
-              const linkName = nameMatch ? decodeURIComponent(nameMatch[1]) : `Ссылка ${linkNum}`;
-              
-              linksMessage += `<b>${linkNum}. ${linkName}</b>\n`;
-              linksMessage += `<code>${link}</code>\n\n`;
-            });
-            
-            await bot.sendMessage(chatId, linksMessage, { parse_mode: "HTML" });
-          }
-        }
-        
-        // 4. URL подписки
+        // 2. URL подписки
         const subscriptionUrl = `https://${SERVER_IP}/subscription/${uuid}`;
         let urlMessage = `🌐 <b>URL подписки (автообновление)</b>\n\n`;
         urlMessage += `<code>${subscriptionUrl}</code>\n\n`;
-        urlMessage += `<i>Используй для автоматического обновления конфигурации</i>`;
+        urlMessage += `<i>Используй для автоматического обновления конфигурации в клиенте</i>`;
         
         await bot.sendMessage(chatId, urlMessage, { parse_mode: "HTML" });
+        
+        // 3. Кнопки с протоколами
+        if (allLinks.length > 0) {
+          // Сохраняем ссылки в глобальный объект для доступа из callback
+          if (!global.clientLinks) {
+            global.clientLinks = {};
+          }
+          global.clientLinks[uuid] = allLinks;
+          
+          // Создаем кнопки (по 2 в ряд)
+          const keyboard = {
+            inline_keyboard: []
+          };
+          
+          // Группируем кнопки
+          for (let i = 0; i < allLinks.length; i += 2) {
+            const row = [];
+            
+            // Первая кнопка в ряду
+            const link1 = allLinks[i];
+            const buttonText1 = getProtocolButtonText(link1.name);
+            row.push({ 
+              text: buttonText1, 
+              callback_data: `show_protocol_link_${uuid}_${i}` 
+            });
+            
+            // Вторая кнопка в ряду (если есть)
+            if (i + 1 < allLinks.length) {
+              const link2 = allLinks[i + 1];
+              const buttonText2 = getProtocolButtonText(link2.name);
+              row.push({ 
+                text: buttonText2, 
+                callback_data: `show_protocol_link_${uuid}_${i + 1}` 
+              });
+            }
+            
+            keyboard.inline_keyboard.push(row);
+          }
+          
+          let protocolMessage = `🔗 <b>Отдельные протоколы подключения</b>\n\n`;
+          protocolMessage += `Выбери протокол, чтобы получить ссылку для подключения:`;
+          
+          await bot.sendMessage(chatId, protocolMessage, { 
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          });
+        }
         
       } catch (error) {
         console.error("Ошибка получения полной информации:", error);
         bot.sendMessage(chatId, `❌ <b>Ошибка:</b> ${error.message}`, { parse_mode: "HTML" });
+      }
+      return;
+    }
+
+    // Показать конкретную ссылку протокола
+    if (data.startsWith("show_protocol_link_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      try {
+        const parts = data.replace("show_protocol_link_", "").split("_");
+        const uuid = parts.slice(0, -1).join("_"); // UUID может содержать _
+        const linkIndex = parseInt(parts[parts.length - 1]);
+        
+        // Получаем сохраненные ссылки
+        if (!global.clientLinks || !global.clientLinks[uuid]) {
+          bot.answerCallbackQuery(query.id, {
+            text: "❌ Ссылки не найдены. Попробуй снова получить полную информацию.",
+            show_alert: true,
+          });
+          return;
+        }
+        
+        const links = global.clientLinks[uuid];
+        const linkData = links[linkIndex];
+        
+        if (!linkData) {
+          bot.answerCallbackQuery(query.id, {
+            text: "❌ Ссылка не найдена",
+            show_alert: true,
+          });
+          return;
+        }
+        
+        // Генерируем QR код для ссылки
+        const qrCodeBuffer = await QRCode.toBuffer(linkData.link);
+        
+        // Отправляем ссылку
+        let linkMessage = `🔗 <b>${linkData.name}</b>\n\n`;
+        linkMessage += `<code>${linkData.link}</code>\n\n`;
+        linkMessage += `<i>Скопируй ссылку или отсканируй QR код</i>`;
+        
+        await bot.sendMessage(chatId, linkMessage, { parse_mode: "HTML" });
+        await bot.sendPhoto(chatId, qrCodeBuffer, {
+          caption: `📱 QR код для ${linkData.name}`
+        });
+        
+        bot.answerCallbackQuery(query.id, {
+          text: "✅ Ссылка отправлена"
+        });
+        
+      } catch (error) {
+        console.error("Ошибка показа ссылки протокола:", error);
+        bot.answerCallbackQuery(query.id, {
+          text: `❌ Ошибка: ${error.message}`,
+          show_alert: true,
+        });
       }
       return;
     }
