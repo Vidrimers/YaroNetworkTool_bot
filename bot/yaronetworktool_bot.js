@@ -8,6 +8,9 @@ import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import { exec } from "child_process";
 import { promisify } from "util";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 import QRCode from "qrcode";
 import APIClient from "./utils/api-client.js";
 import { generateVlessLink } from "./utils/vless-link-generator.js";
@@ -16,6 +19,8 @@ import { showPaymentMethods, showSubscriptionPlans, handlePaymentPlan } from "./
 import { handleMenuCommand, handleMenuCallback } from "./menu-handlers.js";
 
 const execAsync = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -61,6 +66,41 @@ function formatDate(date) {
 // Вспомогательная функция для форматирования трафика (округление до 2 знаков)
 function formatTraffic(gb) {
   return typeof gb === 'number' ? gb.toFixed(2) : '0.00';
+}
+
+// Вспомогательная функция для получения эмодзи статуса
+function getStatusEmoji(status) {
+  const emojis = {
+    'active': '✅',
+    'blocked': '🚫',
+    'expired': '⏰'
+  };
+  return emojis[status] || '❓';
+}
+
+// Вспомогательная функция для получения текста кнопки протокола
+function getProtocolButtonText(linkName) {
+  // Убираем имя клиента из начала
+  const parts = linkName.split(' - ');
+  const protocolName = parts.length > 1 ? parts.slice(1).join(' - ') : linkName;
+  
+  // Сокращаем названия
+  const shortNames = {
+    'Reality XHTTP': '🚀 XHTTP',
+    'Reality TCP': '⚡ TCP',
+    'Reality gRPC': '📡 gRPC',
+    'Reality Vision': '👁️ Vision',
+    'RU Proxy - Reality XHTTP': '🇷🇺 XHTTP',
+    'RU Proxy - Reality TCP': '🇷🇺 TCP',
+    'RU Proxy - Reality gRPC': '🇷🇺 gRPC',
+    'RU Proxy - Reality Vision': '🇷🇺 Vision',
+    'VLESS WS TLS 443': '🔒 WS 443',
+    'VLESS WS TLS 2053': '🔒 WS 2053',
+    'SS2022': '🔐 SS2022',
+    'VLESS WS': '🌐 WS'
+  };
+  
+  return shortNames[protocolName] || protocolName;
 }
 
 // Состояния пользователей для интерактивных команд
@@ -5286,7 +5326,19 @@ bot.on("callback_query", async (query) => {
         message += `<code>${subscriptionUrl}</code>\n\n`;
         message += `UUID: <code>${uuid}</code>`;
         
-        await bot.sendMessage(chatId, message, { parse_mode: "HTML" });
+        // Кнопка для получения полной информации
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: "📋 Полная информация о подписке", callback_data: `full_sub_info_${uuid}` }
+            ]
+          ]
+        };
+        
+        await bot.sendMessage(chatId, message, { 
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        });
         await bot.sendPhoto(chatId, qrCodeBuffer, {
           caption: "📱 QR код для подключения"
         });
@@ -5298,6 +5350,149 @@ bot.on("callback_query", async (query) => {
           text: `❌ Ошибка: ${error.message}`,
           show_alert: true,
         });
+      }
+      return;
+    }
+
+    // Полная информация о подписке (запуск скрипта get-client-key.js)
+    if (data.startsWith("full_sub_info_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const uuid = data.replace("full_sub_info_", "");
+      
+      try {
+        bot.answerCallbackQuery(query.id, {
+          text: "⏳ Генерирую полную информацию...",
+        });
+
+        // Запускаем скрипт get-client-key.js
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        const scriptPath = path.join(__dirname, '../../scripts/get-client-key.js');
+        const { stdout, stderr } = await execAsync(`node "${scriptPath}" ${uuid}`);
+        
+        if (stderr) {
+          console.error('Ошибка выполнения скрипта:', stderr);
+        }
+        
+        // Парсим вывод скрипта
+        const lines = stdout.split('\n');
+        
+        // Находим Base64 подписку
+        let base64Subscription = '';
+        let captureBase64 = false;
+        let allLinks = [];
+        let captureLinks = false;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          // Начало Base64 блока
+          if (line.includes('📋 Base64 подписка')) {
+            captureBase64 = true;
+            continue;
+          }
+          
+          // Конец Base64 блока
+          if (captureBase64 && line.includes('─'.repeat(10))) {
+            if (base64Subscription) {
+              captureBase64 = false;
+            }
+            continue;
+          }
+          
+          // Захват Base64
+          if (captureBase64 && line.trim() && !line.includes('─')) {
+            base64Subscription = line.trim();
+          }
+          
+          // Начало блока ссылок
+          if (line.includes('🔗 Отдельные ссылки:')) {
+            captureLinks = true;
+            continue;
+          }
+          
+          // Конец блока ссылок
+          if (captureLinks && line.includes('🌐 URL подписки')) {
+            captureLinks = false;
+            continue;
+          }
+          
+          // Захват ссылок
+          if (captureLinks && line.startsWith('vless://')) {
+            allLinks.push(line.trim());
+          }
+        }
+        
+        // Отправляем информацию частями
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+        
+        // 1. Информация о клиенте
+        let infoMessage = `╔════════════════════════════════════════╗\n`;
+        infoMessage += `║     ПОЛНАЯ ИНФОРМАЦИЯ О ПОДПИСКЕ       ║\n`;
+        infoMessage += `╚════════════════════════════════════════╝\n\n`;
+        infoMessage += `👤 <b>Имя:</b> ${client.name}\n`;
+        infoMessage += `🔑 <b>UUID:</b> <code>${client.uuid}</code>\n`;
+        if (client.telegram_id) {
+          infoMessage += `💬 <b>Telegram ID:</b> ${client.telegram_id}\n`;
+        }
+        infoMessage += `📊 <b>Статус:</b> ${getStatusEmoji(client.status)} ${client.status}\n`;
+        infoMessage += `📅 <b>Подписка до:</b> ${new Date(client.subscription_end).toLocaleString('ru-RU')}\n`;
+        infoMessage += `📈 <b>Трафик:</b> ${client.traffic_used_gb.toFixed(2)} / ${client.traffic_limit_gb} GB\n`;
+        
+        await bot.sendMessage(chatId, infoMessage, { parse_mode: "HTML" });
+        
+        // 2. Base64 подписка
+        if (base64Subscription) {
+          let base64Message = `📋 <b>Base64 подписка</b>\n\n`;
+          base64Message += `<code>${base64Subscription}</code>\n\n`;
+          base64Message += `<i>Скопируй и импортируй в VPN-клиент</i>`;
+          
+          await bot.sendMessage(chatId, base64Message, { parse_mode: "HTML" });
+        }
+        
+        // 3. Отдельные ссылки (по 3 штуки)
+        if (allLinks.length > 0) {
+          await bot.sendMessage(chatId, `🔗 <b>Отдельные ссылки подключения:</b>`, { parse_mode: "HTML" });
+          
+          for (let i = 0; i < allLinks.length; i += 3) {
+            const chunk = allLinks.slice(i, i + 3);
+            let linksMessage = '';
+            
+            chunk.forEach((link, idx) => {
+              const linkNum = i + idx + 1;
+              // Извлекаем название из ссылки
+              const nameMatch = link.match(/#(.+)$/);
+              const linkName = nameMatch ? decodeURIComponent(nameMatch[1]) : `Ссылка ${linkNum}`;
+              
+              linksMessage += `<b>${linkNum}. ${linkName}</b>\n`;
+              linksMessage += `<code>${link}</code>\n\n`;
+            });
+            
+            await bot.sendMessage(chatId, linksMessage, { parse_mode: "HTML" });
+          }
+        }
+        
+        // 4. URL подписки
+        const subscriptionUrl = `https://${SERVER_IP}/subscription/${uuid}`;
+        let urlMessage = `🌐 <b>URL подписки (автообновление)</b>\n\n`;
+        urlMessage += `<code>${subscriptionUrl}</code>\n\n`;
+        urlMessage += `<i>Используй для автоматического обновления конфигурации</i>`;
+        
+        await bot.sendMessage(chatId, urlMessage, { parse_mode: "HTML" });
+        
+      } catch (error) {
+        console.error("Ошибка получения полной информации:", error);
+        bot.sendMessage(chatId, `❌ <b>Ошибка:</b> ${error.message}`, { parse_mode: "HTML" });
       }
       return;
     }
