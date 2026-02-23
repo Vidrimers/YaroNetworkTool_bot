@@ -5382,11 +5382,12 @@ bot.on("callback_query", async (query) => {
         // Парсим вывод скрипта
         const lines = stdout.split('\n');
         
-        // Находим Base64 подписку
+        // Находим Base64 подписку и ссылки
         let base64Subscription = '';
         let captureBase64 = false;
         let allLinks = [];
         let captureLinks = false;
+        let currentLinkName = '';
         
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
@@ -5422,9 +5423,28 @@ bot.on("callback_query", async (query) => {
             continue;
           }
           
-          // Захват ссылок
-          if (captureLinks && line.startsWith('vless://')) {
-            allLinks.push(line.trim());
+          // Захват названия ссылки (строка с номером)
+          if (captureLinks && /^\d+\.\s/.test(line)) {
+            currentLinkName = line.replace(/^\d+\.\s/, '').trim();
+            continue;
+          }
+          
+          // Захват ссылки
+          if (captureLinks && line.startsWith('vless://') && currentLinkName) {
+            allLinks.push({
+              name: currentLinkName,
+              link: line.trim()
+            });
+            currentLinkName = '';
+          }
+          
+          // Захват SS ссылки
+          if (captureLinks && line.startsWith('ss://') && currentLinkName) {
+            allLinks.push({
+              name: currentLinkName,
+              link: line.trim()
+            });
+            currentLinkName = '';
           }
         }
         
