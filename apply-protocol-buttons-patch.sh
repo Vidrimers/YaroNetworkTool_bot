@@ -40,8 +40,8 @@ cat > /tmp/new_handler.js << 'EOF'
           text: "⏳ Генерирую информацию...",
         });
 
-        // Запускаем скрипт get-client-key.js
-        const scriptPath = path.join(__dirname, '../../scripts/get-client-key.js');
+        // Запускаем скрипт get-client-key.js из основного репозитория VPN
+        const scriptPath = '/home/xray-vpn/scripts/get-client-key.js';
         const { stdout, stderr } = await execAsync(`node "${scriptPath}" ${uuid}`);
         
         if (stderr) {

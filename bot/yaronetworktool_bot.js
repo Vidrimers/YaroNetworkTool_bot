@@ -5371,12 +5371,8 @@ bot.on("callback_query", async (query) => {
           text: "⏳ Генерирую полную информацию...",
         });
 
-        // Запускаем скрипт get-client-key.js
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-        
-        const scriptPath = path.join(__dirname, '../../scripts/get-client-key.js');
+        // Запускаем скрипт get-client-key.js из основного репозитория VPN
+        const scriptPath = '/home/xray-vpn/scripts/get-client-key.js';
         const { stdout, stderr } = await execAsync(`node "${scriptPath}" ${uuid}`);
         
         if (stderr) {
