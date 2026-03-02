@@ -39,6 +39,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '🔗 Моя ссылка', callback_data: 'menu_my_link' }
         ],
         [
+          { text: '📥 Скачать VPN', callback_data: 'menu_download' }
+        ],
+        [
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ]
       ];
