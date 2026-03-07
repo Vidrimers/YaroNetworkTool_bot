@@ -71,6 +71,10 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '📥 Скачать VPN', callback_data: 'menu_download' }
         ],
         [
+          { text: '🚀 Ускорение TG', callback_data: 'menu_tg_acceleration' },
+          { text: '🛡️ Zapret', callback_data: 'menu_zapret' }
+        ],
+        [
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ]
       ];
@@ -757,6 +761,95 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
             }
           });
         }
+        break;
+
+      // ========================================================================
+      // ОБРАБОТЧИКИ ДОПОЛНИТЕЛЬНЫХ ИНСТРУМЕНТОВ
+      // ========================================================================
+
+      case 'menu_tg_acceleration':
+        // Показываем информацию об ускорении Telegram
+        const tgAccelKeyboard = {
+          inline_keyboard: [
+            [{ text: "📖 Открыть GitHub", url: "https://github.com/Flowseal/tg-ws-proxy" }],
+            [{ text: "◀️ Назад в меню", callback_data: "back_to_menu" }]
+          ]
+        };
+        
+        await bot.sendMessage(
+          chatId,
+          `🚀 <b>TG WS Proxy - Ускорение Telegram Desktop</b>\n\n` +
+            `<b>Что это?</b>\n` +
+            `Локальный SOCKS5-прокси, который перенаправляет трафик Telegram Desktop через WebSocket-соединения, ускоряя работу мессенджера.\n\n` +
+            `<b>✅ Преимущества:</b>\n` +
+            `• Ускорение загрузки и скачивания файлов\n` +
+            `• Быстрая загрузка сообщений и медиа\n` +
+            `• Работает параллельно с VPN\n` +
+            `• Бесплатное решение\n\n` +
+            `<b>💻 Поддержка:</b>\n` +
+            `• ✅ Windows (готовый .exe с GUI)\n` +
+            `• ✅ Linux/Mac (через Python)\n` +
+            `• ❌ Мобильные устройства (только десктоп)\n\n` +
+            `<b>🎯 Для кого:</b>\n` +
+            `Только для пользователей Telegram Desktop на компьютере. Не работает с веб-версией или мобильными приложениями.\n\n` +
+            `<b>📥 Установка:</b>\n` +
+            `1. Перейди на GitHub (кнопка ниже)\n` +
+            `2. Скачай TgWsProxy.exe из раздела Releases\n` +
+            `3. Запусти программу\n` +
+            `4. Следуй инструкциям в окне\n\n` +
+            `<b>⚙️ Как работает:</b>\n` +
+            `Программа создаёт локальный прокси на твоём компьютере (127.0.0.1:1080) и перенаправляет трафик Telegram через WebSocket к серверам kws*.web.telegram.org.\n\n` +
+            `<i>💡 Это дополнительный инструмент для ускорения Telegram, работает независимо от нашего VPN.</i>`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: tgAccelKeyboard
+          }
+        );
+        break;
+
+      case 'menu_zapret':
+        // Показываем информацию о Zapret
+        const zapretKeyboard = {
+          inline_keyboard: [
+            [{ text: "📖 Открыть GitHub", url: "https://github.com/Flowseal/zapret-discord-youtube" }],
+            [{ text: "◀️ Назад в меню", callback_data: "back_to_menu" }]
+          ]
+        };
+        
+        await bot.sendMessage(
+          chatId,
+          `🛡️ <b>Zapret - Обход DPI блокировок</b>\n\n` +
+            `<b>Что это?</b>\n` +
+            `Инструмент для обхода Deep Packet Inspection (DPI) - технологии, которую провайдеры используют для блокировки и замедления сайтов и сервисов.\n\n` +
+            `<b>✅ Что разблокирует:</b>\n` +
+            `• Discord, YouTube, Instagram\n` +
+            `• Онлайн игры (Apex Legends, Titanfall 2, WWZ и др.)\n` +
+            `• Telegram, Facebook\n` +
+            `• Другие заблокированные сервисы\n\n` +
+            `<b>💻 Поддержка:</b>\n` +
+            `• ✅ Windows (основная платформа)\n` +
+            `• ✅ Linux (через оригинальный zapret)\n` +
+            `• ❌ Мобильные устройства\n\n` +
+            `<b>🎯 Для кого:</b>\n` +
+            `Для пользователей Windows, которые сталкиваются с блокировками или замедлением Discord, YouTube, игр и других сервисов.\n\n` +
+            `<b>⚙️ Как работает:</b>\n` +
+            `Zapret модифицирует сетевые пакеты на уровне ядра Windows (через WinDivert), изменяя характеристики трафика так, чтобы DPI-системы провайдера не могли точно идентифицировать и заблокировать его.\n\n` +
+            `<b>📥 Установка:</b>\n` +
+            `1. Перейди на GitHub (кнопка ниже)\n` +
+            `2. Скачай последнюю версию из Releases\n` +
+            `3. Следуй инструкциям в README\n` +
+            `4. Запусти программу с правами администратора\n\n` +
+            `<b>⚠️ Важно:</b>\n` +
+            `• Требуются права администратора\n` +
+            `• Работает на уровне системы\n` +
+            `• Не является VPN, а дополняет его\n` +
+            `• Может работать параллельно с нашим VPN\n\n` +
+            `<i>💡 Zapret - это не замена VPN, а дополнительный инструмент для обхода DPI-блокировок конкретных сервисов.</i>`,
+          { 
+            parse_mode: "HTML",
+            reply_markup: zapretKeyboard
+          }
+        );
         break;
 
       // ========================================================================
