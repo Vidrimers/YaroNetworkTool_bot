@@ -16,7 +16,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import sqlite3 from 'sqlite3';
+import { promises as fs } from 'fs';
 import APIClient from "./utils/api-client.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,48 +29,10 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const XRAY_API_PORT = process.env.XRAY_API_PORT || 10085;
 const DB_PATH = process.env.DB_PATH || '/home/xray-vpn/database/vpn.db';
+// Файл для хранения абсолютных значений трафика из Xray между запусками
+const SNAPSHOT_PATH = join(__dirname, '../data/xray-stats-snapshot.json');
 
 const apiClient = new APIClient();
-
-// --- Вспомогательные функции для работы со снапшотами ---
-
-/**
- * Инициализация таблицы снапшотов (если не существует)
- */
-async function initSnapshotTable(db) {
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS xray_stats_snapshot (
-      client_uuid TEXT PRIMARY KEY,
-      bytes_uplink INTEGER NOT NULL DEFAULT 0,
-      bytes_downlink INTEGER NOT NULL DEFAULT 0,
-      updated_at TEXT NOT NULL
-    )
-  `);
-}
-
-/**
- * Получить последний снапшот для клиента
- */
-async function getSnapshot(db, clientUuid) {
-  return db.get(
-    'SELECT * FROM xray_stats_snapshot WHERE client_uuid = ?',
-    [clientUuid]
-  );
-}
-
-/**
- * Сохранить снапшот абсолютных значений из Xray
- */
-async function saveSnapshot(db, clientUuid, uplinkBytes, downlinkBytes) {
-  await db.run(`
-    INSERT INTO xray_stats_snapshot (client_uuid, bytes_uplink, bytes_downlink, updated_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(client_uuid) DO UPDATE SET
-      bytes_uplink = excluded.bytes_uplink,
-      bytes_downlink = excluded.bytes_downlink,
-      updated_at = excluded.updated_at
-  `, [clientUuid, uplinkBytes, downlinkBytes, new Date().toISOString()]);
-}
 
 // --- Получение статистики из Xray ---
 
@@ -130,24 +92,9 @@ async function getXrayStats() {
 async function collectTrafficStats() {
   console.log(`\n[${new Date().toISOString()}] Запуск сбора статистики трафика...`);
 
-  const db = new sqlite3.Database(DB_PATH);
-  db.run = promisify(db.run.bind(db));
-  db.get = promisify(db.get.bind(db));
-  db.all = promisify(db.all.bind(db));
-
   try {
     const TrafficLogModel = (await import('/home/xray-vpn/database/models/traffic-log.js')).default;
     const trafficLogModel = new TrafficLogModel(DB_PATH);
-
-    // Создаём таблицу снапшотов если не существует
-    await db.run(`
-      CREATE TABLE IF NOT EXISTS xray_stats_snapshot (
-        client_uuid TEXT PRIMARY KEY,
-        bytes_uplink INTEGER NOT NULL DEFAULT 0,
-        bytes_downlink INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL
-      )
-    `);
 
     const clientsResponse = await apiClient.getClients();
     const clients = clientsResponse.clients || [];
@@ -168,6 +115,16 @@ async function collectTrafficStats() {
       return;
     }
 
+    // Загружаем снапшоты из файла (абсолютные значения предыдущего запуска)
+    let snapshots = {};
+    try {
+      const snapshotData = await fs.readFile(SNAPSHOT_PATH, 'utf8');
+      snapshots = JSON.parse(snapshotData);
+    } catch {
+      console.log('[collectTrafficStats] Файл снапшотов не найден, первый запуск');
+    }
+
+    const newSnapshots = {};
     let recorded = 0;
 
     for (const [clientName, currentAbsolute] of Object.entries(xrayStats)) {
@@ -178,71 +135,62 @@ async function collectTrafficStats() {
         continue;
       }
 
-      // Получаем предыдущий снапшот абсолютных значений из Xray
-      const snapshot = await db.get(
-        'SELECT * FROM xray_stats_snapshot WHERE client_uuid = ?',
-        [uuid]
-      );
+      // Сохраняем текущее абсолютное значение в новый снапшот
+      newSnapshots[uuid] = { uplink: currentAbsolute.uplink, downlink: currentAbsolute.downlink };
 
-      let deltaUplink, deltaDownlink;
+      const prev = snapshots[uuid];
 
-      if (!snapshot) {
-        // Первый запуск — просто сохраняем снапшот, не пишем дельту
+      if (!prev) {
+        // Первый запуск — только сохраняем снапшот, дельту не пишем
         console.log(`[collectTrafficStats] ${clientName}: первый снапшот, пропускаем запись`);
-      } else {
-        // Считаем дельту от предыдущего абсолютного значения
-        // Если Xray перезапустился (текущее < предыдущего) — берём текущее как дельту
-        deltaUplink = currentAbsolute.uplink >= snapshot.bytes_uplink
-          ? currentAbsolute.uplink - snapshot.bytes_uplink
-          : currentAbsolute.uplink;
-
-        deltaDownlink = currentAbsolute.downlink >= snapshot.bytes_downlink
-          ? currentAbsolute.downlink - snapshot.bytes_downlink
-          : currentAbsolute.downlink;
-
-        const deltaTotal = deltaUplink + deltaDownlink;
-
-        if (deltaTotal === 0) {
-          console.log(`[collectTrafficStats] ${clientName}: нет изменений, пропускаем`);
-        } else {
-          try {
-            console.log(`[collectTrafficStats] Запись для ${clientName} (${uuid})`);
-            console.log(`[collectTrafficStats]   Дельта: ↑${(deltaUplink / 1024 / 1024).toFixed(2)} MB ↓${(deltaDownlink / 1024 / 1024).toFixed(2)} MB`);
-
-            const result = await trafficLogModel.addHourly({
-              client_uuid: uuid,
-              bytes_uploaded: deltaUplink,
-              bytes_downloaded: deltaDownlink,
-              bytes_total: deltaTotal,
-              connections_count: 1
-            });
-
-            console.log(`[collectTrafficStats]   ✅ Записано, ID: ${result.id}`);
-            recorded++;
-          } catch (err) {
-            console.error(`[collectTrafficStats] ❌ Ошибка записи для ${clientName}:`, err.message);
-          }
-        }
+        continue;
       }
 
-      // Сохраняем новый снапшот в любом случае
-      await db.run(`
-        INSERT INTO xray_stats_snapshot (client_uuid, bytes_uplink, bytes_downlink, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(client_uuid) DO UPDATE SET
-          bytes_uplink = excluded.bytes_uplink,
-          bytes_downlink = excluded.bytes_downlink,
-          updated_at = excluded.updated_at
-      `, [uuid, currentAbsolute.uplink, currentAbsolute.downlink, new Date().toISOString()]);
+      // Считаем дельту от предыдущего абсолютного значения
+      // Если Xray перезапустился (текущее < предыдущего) — берём текущее как дельту
+      const deltaUplink = currentAbsolute.uplink >= prev.uplink
+        ? currentAbsolute.uplink - prev.uplink
+        : currentAbsolute.uplink;
+
+      const deltaDownlink = currentAbsolute.downlink >= prev.downlink
+        ? currentAbsolute.downlink - prev.downlink
+        : currentAbsolute.downlink;
+
+      const deltaTotal = deltaUplink + deltaDownlink;
+
+      if (deltaTotal === 0) {
+        console.log(`[collectTrafficStats] ${clientName}: нет изменений, пропускаем`);
+        continue;
+      }
+
+      try {
+        console.log(`[collectTrafficStats] Запись для ${clientName} (${uuid})`);
+        console.log(`[collectTrafficStats]   Дельта: ↑${(deltaUplink / 1024 / 1024).toFixed(2)} MB ↓${(deltaDownlink / 1024 / 1024).toFixed(2)} MB`);
+
+        const result = await trafficLogModel.addHourly({
+          client_uuid: uuid,
+          bytes_uploaded: deltaUplink,
+          bytes_downloaded: deltaDownlink,
+          bytes_total: deltaTotal,
+          connections_count: 1
+        });
+
+        console.log(`[collectTrafficStats]   ✅ Записано, ID: ${result.id}`);
+        recorded++;
+      } catch (err) {
+        console.error(`[collectTrafficStats] ❌ Ошибка записи для ${clientName}:`, err.message);
+      }
     }
+
+    // Сохраняем новые снапшоты в файл
+    await fs.writeFile(SNAPSHOT_PATH, JSON.stringify(newSnapshots, null, 2));
+    console.log(`[collectTrafficStats] Снапшоты сохранены: ${SNAPSHOT_PATH}`);
 
     console.log(`\n[collectTrafficStats] Записано статистики для ${recorded} клиентов`);
     console.log('[collectTrafficStats] Сбор завершен\n');
 
   } catch (error) {
     console.error('[collectTrafficStats] Ошибка:', error);
-  } finally {
-    db.close();
   }
 
   process.exit(0);
