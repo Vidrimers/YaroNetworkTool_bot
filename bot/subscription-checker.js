@@ -156,6 +156,7 @@ async function checkSubscriptions() {
             `⚠️ <b>Подписка истекла</b>\n\n` +
               `Твоя подписка на VPN истекла ${formatDate(client.subscription_end)}.\n\n` +
               `Доступ к VPN заблокирован.\n\n` +
+              `🗑️ <b>Внимание:</b> Через 3 дня твой профиль будет полностью удалён из системы.\n\n` +
               `Для продления подписки обратись к администратору.`,
             { parse_mode: "HTML" }
           ).catch(err => console.error(`Ошибка отправки уведомления клиенту ${client.telegram_id}:`, err));
@@ -198,6 +199,41 @@ async function checkSubscriptions() {
     console.log(`\nИтого:`);
     console.log(`- Истекших подписок: ${expired.length}`);
     console.log(`- Истекающих подписок (≤3 дней): ${expiringSoon.length}`);
+
+    // ========================================================================
+    // Удаление клиентов у которых подписка истекла 3+ дней назад
+    // ========================================================================
+    const DELETE_AFTER_DAYS = 3;
+    const deleteThreshold = new Date(now.getTime() - DELETE_AFTER_DAYS * 24 * 60 * 60 * 1000);
+
+    const toDelete = clients.filter(client => {
+      if (client.status !== 'blocked') return false;
+      const endDate = new Date(client.subscription_end);
+      return endDate < deleteThreshold;
+    });
+
+    console.log(`- Клиентов к удалению (подписка истекла ${DELETE_AFTER_DAYS}+ дней назад): ${toDelete.length}`);
+
+    for (const client of toDelete) {
+      console.log(`Удаление клиента: ${client.name} (${client.uuid}), подписка истекла ${formatDate(client.subscription_end)}`);
+      try {
+        await apiClient.deleteClient(client.uuid);
+        console.log(`Клиент ${client.name} удалён`);
+
+        if (TELEGRAM_ADMIN_ID) {
+          bot.sendMessage(
+            TELEGRAM_ADMIN_ID,
+            `🗑️ <b>Клиент автоматически удалён</b>\n\n` +
+              `👤 <b>Имя:</b> ${client.name}\n` +
+              `🆔 <b>UUID:</b> <code>${client.uuid}</code>\n` +
+              `📅 <b>Подписка истекла:</b> ${formatDate(client.subscription_end)}`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+      } catch (error) {
+        console.error(`Ошибка удаления клиента ${client.name}:`, error);
+      }
+    }
     
     if (expired.length > 0) {
       console.log(`\nИстекшие подписки:`);
