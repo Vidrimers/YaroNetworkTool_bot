@@ -1150,7 +1150,56 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // Обработка добавления клиента
+    // Обработка ввода произвольного количества дней для продления (админ)
+    if (userState.action === "extend_custom_days") {
+      const days = parseInt(text);
+
+      if (isNaN(days) || days <= 0) {
+        bot.sendMessage(chatId, "❌ Неверный формат. Введи положительное число дней:");
+        return;
+      }
+
+      try {
+        const response = await apiClient.getClient(userState.uuid);
+        const client = response.client;
+
+        await apiClient.extendSubscription(userState.uuid, days);
+
+        const updatedResponse = await apiClient.getClient(userState.uuid);
+        const newEndDate = new Date(updatedResponse.client.subscription_end);
+
+        bot.sendMessage(
+          chatId,
+          `✅ <b>Подписка продлена</b>\n\n` +
+          `👤 Клиент: <b>${client.name}</b>\n` +
+          `📅 Добавлено: <b>${days} дней</b>\n` +
+          `📆 Новая дата окончания: <b>${formatDate(newEndDate)}</b>`,
+          {
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: [[{ text: "◀️ К списку клиентов", callback_data: "menu_clients" }]] }
+          }
+        );
+
+        // Уведомляем клиента
+        if (client.telegram_id) {
+          bot.sendMessage(
+            client.telegram_id,
+            `🎉 <b>Подписка продлена!</b>\n\n` +
+            `Администратор добавил тебе <b>${days} дней</b>.\n` +
+            `📆 Новая дата окончания: <b>${formatDate(newEndDate)}</b>`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+
+        userStates.delete(userId);
+      } catch (error) {
+        console.error("Ошибка продления подписки:", error);
+        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+        userStates.delete(userId);
+      }
+      return;
+    }
+
     // Обработка переименования клиента
     if (userState.action === "rename_client") {
       const newName = text.trim();
@@ -2244,7 +2293,7 @@ bot.on("callback_query", async (query) => {
     // ОБРАБОТЧИКИ МЕНЮ (инлайн-кнопки из /menu)
     // ========================================================================
     
-    if (data.startsWith("menu_") || data === "back_to_menu" || data.startsWith("admin_pending") || data.startsWith("admin_approved") || data.startsWith("admin_denied")) {
+    if (data.startsWith("menu_") || data === "back_to_menu" || data.startsWith("admin_pending") || data.startsWith("admin_approved") || data.startsWith("admin_denied") || data === "admin_extend_client" || data.startsWith("extend_select_") || data.startsWith("extend_days_") || data.startsWith("extend_custom_")) {
       await handleMenuCallback(bot, query, data, isAdmin, apiClient, getClientByTelegramId, formatDate, formatTraffic);
       return;
     }
@@ -6030,6 +6079,249 @@ bot.on("callback_query", async (query) => {
         text: "❌ Создание доступа отменено",
         show_alert: true,
       });
+      return;
+    }
+
+    // ========================================================================
+    // ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ АККАУНТА КЛИЕНТОМ
+    // ========================================================================
+
+    if (data.startsWith("confirm_delete_self_")) {
+      const uuid = data.replace("confirm_delete_self_", "");
+
+      // Проверяем что клиент удаляет именно свой аккаунт
+      const client = await getClientByTelegramId(userId);
+      if (!client || client.uuid !== uuid) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      try {
+        await apiClient.deleteClient(uuid);
+
+        bot.answerCallbackQuery(query.id, { text: "✅ Аккаунт удалён" });
+        bot.editMessageText(
+          `✅ <b>Аккаунт удалён</b>\n\n` +
+          `Все твои данные удалены из системы.\n` +
+          `Доступ к VPN прекращён.`,
+          { chat_id: chatId, message_id: query.message.message_id, parse_mode: "HTML" }
+        );
+
+        // Уведомляем админа
+        if (TELEGRAM_ADMIN_ID) {
+          bot.sendMessage(
+            TELEGRAM_ADMIN_ID,
+            `🗑️ <b>Клиент удалил аккаунт</b>\n\n` +
+            `👤 <b>Имя:</b> ${client.name}\n` +
+            `🆔 <b>UUID:</b> <code>${uuid}</code>\n` +
+            `📱 <b>Telegram ID:</b> ${userId}`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+      } catch (error) {
+        console.error("Ошибка удаления аккаунта клиентом:", error);
+        bot.answerCallbackQuery(query.id, { text: `❌ Ошибка: ${error.message}`, show_alert: true });
+      }
+      return;
+    }
+
+    // ========================================================================
+    // УДАЛЕНИЕ КЛИЕНТА АДМИНОМ
+    // ========================================================================
+
+    if (data.startsWith("admin_delete_client_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      const uuid = data.replace("admin_delete_client_", "");
+
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+
+        bot.answerCallbackQuery(query.id);
+        await bot.sendMessage(chatId,
+          `🗑️ <b>Удаление клиента</b>\n\n` +
+          `Ты уверен, что хочешь удалить клиента <b>${client.name}</b>?\n\n` +
+          `⚠️ Это действие необратимо — все данные и VPN доступ будут удалены.`,
+          {
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "✅ Да, удалить", callback_data: `confirm_delete_client_${uuid}` }],
+                [{ text: "❌ Отмена", callback_data: "menu_clients" }]
+              ]
+            }
+          }
+        );
+      } catch (error) {
+        bot.answerCallbackQuery(query.id, { text: `❌ Ошибка: ${error.message}`, show_alert: true });
+      }
+      return;
+    }
+
+    if (data.startsWith("confirm_delete_client_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      const uuid = data.replace("confirm_delete_client_", "");
+
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+
+        await apiClient.deleteClient(uuid);
+
+        bot.answerCallbackQuery(query.id, { text: "✅ Клиент удалён" });
+        bot.editMessageText(
+          `✅ <b>Клиент удалён</b>\n\n` +
+          `👤 <b>${client.name}</b> полностью удалён из системы и конфига Xray.`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: [[{ text: "◀️ К списку клиентов", callback_data: "menu_clients" }]] }
+          }
+        );
+
+        // Уведомляем клиента если есть telegram_id
+        if (client.telegram_id) {
+          bot.sendMessage(
+            client.telegram_id,
+            `❌ <b>Твой аккаунт удалён администратором</b>\n\nДоступ к VPN прекращён.`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+      } catch (error) {
+        console.error("Ошибка удаления клиента админом:", error);
+        bot.answerCallbackQuery(query.id, { text: `❌ Ошибка: ${error.message}`, show_alert: true });
+      }
+      return;
+    }
+
+    // ========================================================================
+    // ПРЯМАЯ ВЫДАЧА ДНЕЙ ПОДПИСКИ АДМИНОМ
+    // ========================================================================
+
+    if (data.startsWith("extend_select_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      const uuid = data.replace("extend_select_", "");
+
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+        const endDate = new Date(client.subscription_end);
+        const daysLeft = Math.ceil((endDate - new Date()) / (1000 * 60 * 60 * 24));
+
+        bot.answerCallbackQuery(query.id);
+        await bot.sendMessage(chatId,
+          `📅 <b>Выдать дни подписки</b>\n\n` +
+          `👤 Клиент: <b>${client.name}</b>\n` +
+          `📆 Текущий остаток: ${daysLeft > 0 ? `${daysLeft} дней` : 'истекла'}\n\n` +
+          `Выбери количество дней:`,
+          {
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "7 дней", callback_data: `extend_days_${uuid}_7` },
+                  { text: "14 дней", callback_data: `extend_days_${uuid}_14` },
+                  { text: "30 дней", callback_data: `extend_days_${uuid}_30` }
+                ],
+                [
+                  { text: "60 дней", callback_data: `extend_days_${uuid}_60` },
+                  { text: "90 дней", callback_data: `extend_days_${uuid}_90` },
+                  { text: "180 дней", callback_data: `extend_days_${uuid}_180` }
+                ],
+                [
+                  { text: "365 дней", callback_data: `extend_days_${uuid}_365` },
+                  { text: "✏️ Ввести вручную", callback_data: `extend_custom_${uuid}` }
+                ],
+                [{ text: "◀️ Назад", callback_data: "admin_extend_client" }]
+              ]
+            }
+          }
+        );
+      } catch (error) {
+        bot.answerCallbackQuery(query.id, { text: `❌ Ошибка: ${error.message}`, show_alert: true });
+      }
+      return;
+    }
+
+    if (data.startsWith("extend_days_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      const parts = data.replace("extend_days_", "").split("_");
+      const days = parseInt(parts[parts.length - 1]);
+      const uuid = parts.slice(0, -1).join("_");
+
+      try {
+        const response = await apiClient.getClient(uuid);
+        const client = response.client;
+
+        await apiClient.extendSubscription(uuid, days);
+
+        const updatedResponse = await apiClient.getClient(uuid);
+        const updatedClient = updatedResponse.client;
+        const newEndDate = new Date(updatedClient.subscription_end);
+
+        bot.answerCallbackQuery(query.id, { text: `✅ Добавлено ${days} дней` });
+        bot.editMessageText(
+          `✅ <b>Подписка продлена</b>\n\n` +
+          `👤 Клиент: <b>${client.name}</b>\n` +
+          `📅 Добавлено: <b>${days} дней</b>\n` +
+          `📆 Новая дата окончания: <b>${formatDate(newEndDate)}</b>`,
+          {
+            chat_id: chatId,
+            message_id: query.message.message_id,
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: [[{ text: "◀️ К списку клиентов", callback_data: "menu_clients" }]] }
+          }
+        );
+
+        // Уведомляем клиента
+        if (client.telegram_id) {
+          bot.sendMessage(
+            client.telegram_id,
+            `🎉 <b>Подписка продлена!</b>\n\n` +
+            `Администратор добавил тебе <b>${days} дней</b>.\n` +
+            `📆 Новая дата окончания: <b>${formatDate(newEndDate)}</b>`,
+            { parse_mode: "HTML" }
+          ).catch(() => {});
+        }
+      } catch (error) {
+        console.error("Ошибка продления подписки:", error);
+        bot.answerCallbackQuery(query.id, { text: `❌ Ошибка: ${error.message}`, show_alert: true });
+      }
+      return;
+    }
+
+    if (data.startsWith("extend_custom_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, { text: "❌ Доступ запрещен", show_alert: true });
+        return;
+      }
+
+      const uuid = data.replace("extend_custom_", "");
+      bot.answerCallbackQuery(query.id);
+
+      userStates.set(userId, { action: "extend_custom_days", uuid });
+
+      bot.editMessageText(
+        `✏️ <b>Ввести количество дней</b>\n\nОтправь число дней для продления (например: 45)\n\nДля отмены отправь /cancel`,
+        { chat_id: chatId, message_id: query.message.message_id, parse_mode: "HTML" }
+      );
       return;
     }
 

@@ -76,6 +76,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
         ],
         [
           { text: '❓ Помощь', callback_data: 'menu_help' }
+        ],
+        [
+          { text: '🗑️ Удалить аккаунт', callback_data: 'menu_delete_account' }
         ]
       ];
 
@@ -180,6 +183,9 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
               ],
               [
                 { text: "🔍 Проверить торренты", callback_data: "admin_check_torrents" }
+              ],
+              [
+                { text: "📅 Выдать дни подписки", callback_data: "admin_extend_client" }
               ],
               [
                 { text: "◀️ Назад в меню", callback_data: "back_to_menu" }
@@ -1130,6 +1136,84 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           global.awaitingAnnouncement = {};
         }
         global.awaitingAnnouncement[userId] = true;
+        break;
+
+      // ========================================================================
+      // УДАЛЕНИЕ АККАУНТА КЛИЕНТОМ
+      // ========================================================================
+
+      case 'menu_delete_account':
+        // Клиент запрашивает удаление своего аккаунта
+        try {
+          const client = await getClientByTelegramId(userId);
+          if (!client) {
+            await bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
+            return;
+          }
+
+          await bot.sendMessage(chatId,
+            `🗑️ <b>Удаление аккаунта</b>\n\n` +
+            `Ты уверен, что хочешь удалить свой аккаунт?\n\n` +
+            `⚠️ <b>Это действие необратимо:</b>\n` +
+            `• Твой VPN ключ будет удалён\n` +
+            `• Все данные о тебе будут удалены\n` +
+            `• Доступ к VPN прекратится немедленно`,
+            {
+              parse_mode: "HTML",
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "✅ Да, удалить аккаунт", callback_data: `confirm_delete_self_${client.uuid}` }],
+                  [{ text: "❌ Отмена", callback_data: "back_to_menu" }]
+                ]
+              }
+            }
+          );
+        } catch (error) {
+          console.error("Ошибка запроса удаления аккаунта:", error);
+          await bot.sendMessage(chatId, "❌ Произошла ошибка. Попробуйте позже.");
+        }
+        break;
+
+      // ========================================================================
+      // ПРЯМАЯ ВЫДАЧА ДНЕЙ АДМИНОМ
+      // ========================================================================
+
+      case 'admin_extend_client':
+        // Админ выбирает клиента для продления подписки напрямую
+        if (!isAdmin(userId)) {
+          await bot.sendMessage(chatId, "❌ Доступ запрещен");
+          return;
+        }
+
+        try {
+          const response = await apiClient.getClients();
+          const clients = response.clients || [];
+
+          if (clients.length === 0) {
+            await bot.sendMessage(chatId, "📭 Клиенты не найдены", {
+              reply_markup: { inline_keyboard: [[{ text: "◀️ Назад", callback_data: "menu_clients" }]] }
+            });
+            return;
+          }
+
+          const keyboard = {
+            inline_keyboard: [
+              ...clients.map(c => [{
+                text: `${c.status === 'active' ? '✅' : '❌'} ${c.name}`,
+                callback_data: `extend_select_${c.uuid}`
+              }]),
+              [{ text: "◀️ Назад", callback_data: "menu_clients" }]
+            ]
+          };
+
+          await bot.sendMessage(chatId, `📅 <b>Выдать дни подписки</b>\n\nВыбери клиента:`, {
+            parse_mode: "HTML",
+            reply_markup: keyboard
+          });
+        } catch (error) {
+          console.error("Ошибка получения клиентов для продления:", error);
+          await bot.sendMessage(chatId, "❌ Ошибка подключения к API серверу.");
+        }
         break;
 
       // ========================================================================
