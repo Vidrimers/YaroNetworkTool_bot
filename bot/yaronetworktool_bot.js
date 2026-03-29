@@ -4926,6 +4926,11 @@ bot.on("callback_query", async (query) => {
             { text: "📱 Изменить лимит устройств", callback_data: `change_device_limit_${clientData.uuid}` }
           ]);
 
+          // Кнопка выдать дни подписки
+          keyboard.inline_keyboard.push([
+            { text: "📅 Выдать дни подписки", callback_data: `extend_select_${clientData.uuid}` }
+          ]);
+
           // Кнопка выдать предупреждение
           keyboard.inline_keyboard.push([
             { text: "⚠️ Выдать предупреждение", callback_data: `warn_client` }
