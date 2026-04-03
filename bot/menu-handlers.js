@@ -42,6 +42,10 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '📥 Скачать VPN', callback_data: 'menu_download' }
         ],
         [
+          { text: '🚀 Ускорение TG', callback_data: 'menu_tg_acceleration' },
+          { text: '🛡️ Zapret', callback_data: 'menu_zapret' }
+        ],
+        [
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ]
       ];
