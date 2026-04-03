@@ -777,6 +777,7 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
         // Показываем информацию об ускорении Telegram
         const tgAccelKeyboard = {
           inline_keyboard: [
+            [{ text: "📡 Подключить MTProxy", callback_data: "activate_mtproxy" }],
             [{ text: "📖 Открыть GitHub", url: "https://github.com/Flowseal/tg-ws-proxy" }],
             [{ text: "◀️ Назад в меню", callback_data: "back_to_menu" }]
           ]
@@ -812,6 +813,78 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           }
         );
         break;
+
+      // ========================================================================
+      // ОБРАБОТЧИК АКТИВАЦИИ MTPROXY
+      // ========================================================================
+
+      case 'activate_mtproxy': {
+        // Отправляем ссылку MTProxy клиенту и уведомляем админа при первой активации
+        const MTPROXY_LINK = process.env.MTPROXY_LINK;
+
+        if (!MTPROXY_LINK) {
+          await bot.sendMessage(chatId, "❌ MTProxy не настроен. Обратись к администратору.");
+          return;
+        }
+
+        // Получаем клиента для проверки флага первой активации
+        let proxyClient = null;
+        try {
+          proxyClient = await getClientByTelegramId(userId);
+        } catch (err) {
+          console.error('[MTProxy] Ошибка получения клиента:', err);
+        }
+
+        // Отправляем ссылку пользователю
+        await bot.sendMessage(
+          chatId,
+          `📡 <b>MTProxy для Telegram</b>\n\n` +
+            `Нажми на кнопку ниже — Telegram предложит добавить прокси автоматически.\n\n` +
+            `<b>Что это даёт:</b>\n` +
+            `• Ускорение Telegram при медленном соединении\n` +
+            `• Обход блокировок Telegram\n` +
+            `• Работает на всех устройствах (Android, iOS, Desktop)\n\n` +
+            `<i>Прокси работает только для Telegram, не влияет на другой трафик.</i>`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📡 Добавить прокси в Telegram', url: MTPROXY_LINK }],
+                [{ text: '◀️ Назад', callback_data: 'menu_tg_acceleration' }]
+              ]
+            }
+          }
+        );
+
+        // Уведомляем админа только при первой активации
+        if (proxyClient && !proxyClient.proxy_activated_at) {
+          try {
+            // Ставим флаг первой активации
+            await apiClient.updateClient(proxyClient.uuid, {
+              proxy_activated_at: new Date().toISOString()
+            });
+
+            const TELEGRAM_ADMIN_ID = parseInt(process.env.TELEGRAM_ADMIN_ID);
+            if (TELEGRAM_ADMIN_ID) {
+              await bot.sendMessage(
+                TELEGRAM_ADMIN_ID,
+                `📡 <b>Клиент активировал MTProxy</b>\n\n` +
+                  `👤 <b>Клиент:</b> ${proxyClient.name}\n` +
+                  `🆔 <b>Telegram ID:</b> ${userId}\n` +
+                  `🕐 <b>Время:</b> ${new Date().toLocaleString('ru-RU')}`,
+                { parse_mode: 'HTML' }
+              );
+            }
+          } catch (err) {
+            console.error('[MTProxy] Ошибка обновления флага или уведомления админа:', err);
+          }
+        }
+        break;
+      }
+
+      // ========================================================================
+      // КОНЕЦ ОБРАБОТЧИКА АКТИВАЦИИ MTPROXY
+      // ========================================================================
 
       case 'menu_zapret':
         // Показываем информацию о Zapret
