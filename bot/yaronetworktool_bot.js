@@ -2293,7 +2293,7 @@ bot.on("callback_query", async (query) => {
     // ОБРАБОТЧИКИ МЕНЮ (инлайн-кнопки из /menu)
     // ========================================================================
     
-    if (data.startsWith("menu_") || data === "back_to_menu" || data.startsWith("admin_pending") || data.startsWith("admin_approved") || data.startsWith("admin_denied") || data === "admin_extend_client") {
+    if (data.startsWith("menu_") || data === "back_to_menu" || data.startsWith("admin_pending") || data.startsWith("admin_approved") || data.startsWith("admin_denied") || data === "admin_extend_client" || data === "activate_mtproxy") {
       await handleMenuCallback(bot, query, data, isAdmin, apiClient, getClientByTelegramId, formatDate, formatTraffic);
       return;
     }
