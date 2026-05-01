@@ -8,10 +8,13 @@ import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import APIClient from "./utils/api-client.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const execAsync = promisify(exec);
 
 // Загружаем .env из корня проекта
 dotenv.config({ path: join(__dirname, '..', '.env') });
@@ -19,6 +22,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 // Конфигурация
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_ADMIN_ID = parseInt(process.env.TELEGRAM_ADMIN_ID);
+const API_ENDPOINT = '127.0.0.1:10085';
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.error("TELEGRAM_BOT_TOKEN не установлен в .env");
@@ -27,6 +31,20 @@ if (!TELEGRAM_BOT_TOKEN) {
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
 const apiClient = new APIClient();
+
+/**
+ * Сбросить статистику Xray для пользователя
+ */
+async function resetXrayStats(email) {
+  try {
+    const command = `xray api stats --server=${API_ENDPOINT} -name "user>>>${email}>>>" -reset`;
+    await execAsync(command);
+    return true;
+  } catch (error) {
+    console.error(`Ошибка сброса статистики Xray для ${email}:`, error.message);
+    return false;
+  }
+}
 
 // Основная функция сброса трафика
 async function resetTraffic() {
@@ -56,6 +74,9 @@ async function resetTraffic() {
           traffic_used_gb: 0,
           traffic_reset_date: new Date().toISOString()
         });
+
+        // Сбрасываем статистику Xray
+        await resetXrayStats(client.name);
 
         successCount++;
         resetClients.push({
