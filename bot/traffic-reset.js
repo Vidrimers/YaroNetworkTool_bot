@@ -37,8 +37,14 @@ const apiClient = new APIClient();
  */
 async function resetXrayStats(email) {
   try {
-    const command = `xray api stats --server=${API_ENDPOINT} -name "user>>>${email}>>>" -reset`;
-    await execAsync(command);
+    // Сбрасываем uplink
+    const uplinkCommand = `xray api stats --server=${API_ENDPOINT} --name "user>>>${email}>>>traffic>>>uplink" --reset`;
+    await execAsync(uplinkCommand);
+    
+    // Сбрасываем downlink
+    const downlinkCommand = `xray api stats --server=${API_ENDPOINT} --name "user>>>${email}>>>traffic>>>downlink" --reset`;
+    await execAsync(downlinkCommand);
+    
     return true;
   } catch (error) {
     console.error(`Ошибка сброса статистики Xray для ${email}:`, error.message);
