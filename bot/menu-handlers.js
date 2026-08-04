@@ -46,6 +46,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '🛡️ Zapret', callback_data: 'menu_zapret' }
         ],
         [
+          { text: '🔍 Диагностика блокировок', callback_data: 'menu_tspu' }
+        ],
+        [
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ]
       ];
@@ -73,6 +76,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
         ],
         [
           { text: '📥 Скачать VPN', callback_data: 'menu_download' }
+        ],
+        [
+          { text: '🔍 Проверить подключение', callback_data: 'menu_tspu_client' }
         ],
         [
           { text: '🚀 Ускорение TG', callback_data: 'menu_tg_acceleration' },
@@ -890,6 +896,132 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
       // КОНЕЦ ОБРАБОТЧИКА АКТИВАЦИИ MTPROXY
       // ========================================================================
 
+      // ========================================================================
+      // ДИАГНОСТИКА ТСПУ (АДМИН)
+      // ========================================================================
+
+      case 'menu_tspu': {
+        if (!isAdmin(userId)) {
+          await bot.sendMessage(chatId, "❌ Доступ запрещен");
+          return;
+        }
+
+        const tspuMenuKeyboard = {
+          inline_keyboard: [
+            [
+              { text: '🟢 prod (89.124.70.156)', callback_data: 'tspu_check_89.124.70.156' }
+            ],
+            [
+              { text: '🟡 rus (185.244.172.188)', callback_data: 'tspu_check_185.244.172.188' }
+            ],
+            [
+              { text: '◀️ Назад в меню', callback_data: 'back_to_menu' }
+            ]
+          ]
+        };
+
+        await bot.sendMessage(chatId,
+          `🔍 <b>Диагностика блокировок ТСПУ</b>\n\n` +
+          `Выберите сервер для проверки:`,
+          { parse_mode: "HTML", reply_markup: tspuMenuKeyboard }
+        );
+        break;
+      }
+
+      case 'menu_tspu_client': {
+        // Упрощённая диагностика для клиента
+        const serverIp = process.env.SERVER_IP || '89.124.70.156';
+
+        await bot.sendMessage(chatId, '⏳ Проверяю подключение к YaroVPN...');
+
+        try {
+          const result = await apiClient.checkTSPU(serverIp);
+
+          let msg = `🔍 <b>Проверка подключения к YaroVPN</b>\n\n`;
+
+          // Пинг
+          if (result.ping?.reachable) {
+            msg += `📡 Пинг: ${result.ping.latency_ms}ms ✅\n\n`;
+          } else {
+            msg += `📡 Пинг: Недоступен ❌\n\n`;
+          }
+
+          // Определяем какие протоколы работают
+          const ports = result.ports || {};
+          const working = [];
+          const blocked = [];
+
+          const protoMap = {
+            443: '🔒 VLESS WS TLS (443)',
+            8443: '🚀 Reality XHTTP',
+            8448: '🔐 SS2022',
+            8449: '🌐 VLESS WS',
+            25000: '⚡ Hysteria2',
+          };
+
+          for (const [port, info] of Object.entries(ports)) {
+            const name = protoMap[port] || `Порт ${port}`;
+            if (info.open) working.push(name);
+            else blocked.push(name);
+          }
+
+          if (working.length > 0) {
+            msg += `<b>✅ Работающие протоколы:</b>\n`;
+            working.forEach(p => { msg += `  ${p}\n`; });
+            msg += `\n`;
+
+            // Рекомендация
+            if (working.some(p => p.includes('443'))) {
+              msg += `💡 <b>Рекомендация:</b> используйте "🔒 WS 443" — самый стойкий к блокировкам\n`;
+            } else if (working.some(p => p.includes('Hysteria'))) {
+              msg += `💡 <b>Рекомендация:</b> используйте "⚡ Hysteria2" — QUIC сложнее заблокировать\n`;
+            } else {
+              msg += `💡 <b>Рекомендация:</b> используйте любой работающий протокол из меню "Моя ссылка"\n`;
+            }
+          }
+
+          if (blocked.length > 0 && working.length > 0) {
+            msg += `\n<b>❌ Заблокировано:</b>\n`;
+            blocked.forEach(p => { msg += `  ${p}\n`; });
+          }
+
+          if (working.length === 0) {
+            msg += `<b>❌ Серверы YaroVPN не доступны из вашей сети.</b>\n\n`;
+            msg += `Попробуйте:\n`;
+            msg += `1️⃣ Смените сеть (мобильный / другая WiFi)\n`;
+            msg += `2️⃣ Попробуйте другой протокол из меню "Моя ссылка"\n`;
+            msg += `3️⃣ Напишите в поддержку\n`;
+          }
+
+          const tspuClientKeyboard = {
+            inline_keyboard: [
+              [{ text: '🔄 Проверить снова', callback_data: 'menu_tspu_client' }],
+              [{ text: '📋 Мои протоколы', callback_data: 'menu_my_link' }],
+              [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
+            ]
+          };
+
+          await bot.sendMessage(chatId, msg, {
+            parse_mode: "HTML",
+            reply_markup: tspuClientKeyboard
+          });
+        } catch (error) {
+          console.error('[TSPU] Ошибка диагностики для клиента:', error);
+          await bot.sendMessage(chatId,
+            `❌ Не удалось проверить подключение.\n\nПопробуйте позже или обратитесь в поддержку.`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔄 Попробовать снова', callback_data: 'menu_tspu_client' }],
+                  [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            }
+          );
+        }
+        break;
+      }
+
       case 'menu_zapret':
         // Показываем информацию о Zapret
         const zapretKeyboard = {
@@ -1303,6 +1435,98 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
         break;
 
       default:
+        // Динамические callback'и
+        if (data.startsWith('tspu_check_')) {
+          const targetIp = data.replace('tspu_check_', '');
+
+          if (!isAdmin(userId)) {
+            await bot.sendMessage(chatId, "❌ Доступ запрещен");
+            return;
+          }
+
+          await bot.sendMessage(chatId, `⏳ Проверяю сервер ${targetIp}...`);
+
+          try {
+            const result = await apiClient.checkTSPU(targetIp);
+
+            let msg = `📊 <b>Диагностика — ${result.ip}</b>\n`;
+            msg += `🕐 ${new Date(result.timestamp).toLocaleString('ru-RU')}\n\n`;
+
+            // Пинг
+            if (result.ping?.reachable) {
+              msg += `🔌 Пинг: ${result.ping.latency_ms}ms ✅ | Потери: ${result.ping.packet_loss}\n\n`;
+            } else {
+              msg += `🔌 Пинг: Недоступен ❌\n\n`;
+            }
+
+            // Порты
+            msg += `<b>📡 TCP порты:</b>\n`;
+            const ports = result.ports || {};
+            for (const [port, info] of Object.entries(ports)) {
+              const status = info.open ? `✅ ${info.time_ms}ms` : '❌';
+              msg += `  ${port} (${info.name}) ${status}\n`;
+            }
+            msg += `\n`;
+
+            // SNI
+            msg += `<b>🎭 SNI фильтрация:</b>\n`;
+            const sni = result.sni || {};
+            for (const [domain, info] of Object.entries(sni)) {
+              const status = info.pass ? `✅ ${info.cert || 'OK'}` : `❌ ${info.error || 'Заблокирован'}`;
+              msg += `  ${domain} ${status}\n`;
+            }
+            msg += `\n`;
+
+            // DNS
+            const dns = result.dns || {};
+            msg += `<b>🌐 DNS:</b>\n`;
+            if (dns.system) {
+              msg += `  Системный → ${dns.system.ip || 'нет ответа'} ${dns.system.ok ? '✅' : '❌'}\n`;
+            }
+            if (dns.doh_1111) {
+              msg += `  DoH 1.1.1.1 → ${dns.doh_1111.ip || 'нет ответа'} ${dns.doh_1111.ok ? '✅' : '❌'}\n`;
+            }
+            msg += `  Spoofing: ${dns.spoofing ? '⚠️ ДА' : 'НЕТ'}\n\n`;
+
+            // ТСПУ режим
+            const modeMap = {
+              'none': '✅ Блокировок нет',
+              'allowlist': '⚠️ Режим белого списка',
+              'blocklist': '⚠️ Режим чёрного списка',
+              'unknown': '❓ Не определён',
+            };
+            msg += `<b>📡 Режим ТСПУ:</b> ${modeMap[result.tspu_mode] || '❓ Не определён'}\n`;
+
+            const tspuResultKeyboard = {
+              inline_keyboard: [
+                [{ text: '🔄 Обновить', callback_data: `tspu_check_${targetIp}` }],
+                [
+                  { text: '🟢 prod', callback_data: 'tspu_check_89.124.70.156' },
+                  { text: '🟡 rus', callback_data: 'tspu_check_185.244.172.188' }
+                ],
+                [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
+              ]
+            };
+
+            await bot.sendMessage(chatId, msg, {
+              parse_mode: "HTML",
+              reply_markup: tspuResultKeyboard
+            });
+          } catch (error) {
+            console.error('[TSPU] Ошибка диагностики:', error);
+            await bot.sendMessage(chatId, `❌ Ошибка диагностики сервера ${targetIp}. Попробуйте позже.`, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔄 Попробовать снова', callback_data: `tspu_check_${targetIp}` }],
+                  [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
+                ]
+              }
+            });
+          }
+          return;
+        }
+
+        // Конец динамических callback'ей
         console.log(`[MENU_CALLBACK] Неизвестный callback: ${data}`);
         break;
     }
