@@ -53,7 +53,7 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ],
         [
-          { text: '🌐 Веб-портал', callback_data: 'menu_portal' }
+          { text: '📱 Личный кабинет', callback_data: 'menu_portal' }
         ]
       ];
 
@@ -92,7 +92,7 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ],
         [
-          { text: '🌐 Веб-портал', callback_data: 'menu_portal' }
+          { text: '📱 Личный кабинет', callback_data: 'menu_portal' }
         ],
         [
           { text: '🗑️ Удалить аккаунт', callback_data: 'menu_delete_account' }
@@ -1105,8 +1105,8 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           };
           
           await bot.sendMessage(chatId,
-            `🌐 <b>Веб-портал</b>\n\n` +
-            `Выберите способ входа в личный кабинет:`,
+            `📱 <b>Личный кабинет</b>\n\n` +
+            `Выберите способ входа:`,
             {
               parse_mode: "HTML",
               reply_markup: portalKeyboard
