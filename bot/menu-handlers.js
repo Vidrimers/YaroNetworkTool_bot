@@ -5,6 +5,7 @@
 
 import { getActiveDevices } from "./device-monitor.js";
 import QRCode from "qrcode";
+import jwt from "jsonwebtoken";
 
 // Переменные окружения
 const SERVER_IP = process.env.SERVER_IP || "localhost";
@@ -52,7 +53,7 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ],
         [
-          { text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }
+          { text: '🌐 Веб-портал', callback_data: 'menu_portal' }
         ]
       ];
 
@@ -91,7 +92,7 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
           { text: '❓ Помощь', callback_data: 'menu_help' }
         ],
         [
-          { text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }
+          { text: '🌐 Веб-портал', callback_data: 'menu_portal' }
         ],
         [
           { text: '🗑️ Удалить аккаунт', callback_data: 'menu_delete_account' }
@@ -1071,6 +1072,54 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
             reply_markup: zapretKeyboard
           }
         );
+        break;
+
+      // ========================================================================
+      // ОБРАБОТЧИК ВЕБ-ПОРТАЛА
+      // ========================================================================
+
+      case 'menu_portal':
+        try {
+          const portalClient = await getClientByTelegramId(userId);
+          
+          if (!portalClient) {
+            await bot.sendMessage(chatId, "❌ Ты не зарегистрирован в системе");
+            return;
+          }
+          
+          // Генерируем токен для входа в панель
+          const token = jwt.sign(
+            { client_uuid: portalClient.uuid, admin: isAdmin(userId), telegram_id: userId },
+            process.env.JWT_SECRET,
+            { expiresIn: '30d' }
+          );
+          
+          const portalUrl = `https://panel.1xbetlineboom.xyz/?token=${token}`;
+          
+          const portalKeyboard = {
+            inline_keyboard: [
+              [{ text: '🔗 Открыть кабинет', url: portalUrl }],
+              [{ text: '📱 Открыть Mini App', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }],
+              [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
+            ]
+          };
+          
+          await bot.sendMessage(chatId,
+            `🌐 <b>Веб-портал</b>\n\n` +
+            `Выберите способ входа в личный кабинет:`,
+            {
+              parse_mode: "HTML",
+              reply_markup: portalKeyboard
+            }
+          );
+        } catch (error) {
+          console.error("Ошибка открытия портала:", error);
+          await bot.sendMessage(chatId, "❌ Ошибка генерации ссылки", {
+            reply_markup: {
+              inline_keyboard: [[{ text: "◀️ Назад в меню", callback_data: "back_to_menu" }]]
+            }
+          });
+        }
         break;
 
       // ========================================================================
