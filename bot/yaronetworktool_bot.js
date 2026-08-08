@@ -126,6 +126,17 @@ function removeKeyboard() {
   };
 }
 
+// Функция для создания основной клавиатуры с кнопкой Mini App
+function getMainKeyboard() {
+  return {
+    keyboard: [
+      [{ text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }]
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false
+  };
+}
+
 console.log("\n[YaroNetworkTool VPN Bot] Запущен\n");
 console.log(`Admin ID: ${TELEGRAM_ADMIN_ID}`);
 console.log(`Server IP: ${SERVER_IP}`);
@@ -189,7 +200,7 @@ bot.onText(/\/start/, async (msg) => {
           `❓ <b>Помощь</b> - Справка по командам`,
         {
           parse_mode: "HTML",
-          reply_markup: removeKeyboard(),
+          reply_markup: getMainKeyboard(),
         }
       );
     } else {
@@ -215,7 +226,7 @@ bot.onText(/\/start/, async (msg) => {
             `❓ <b>Помощь</b> - Справка`,
           {
             parse_mode: "HTML",
-            reply_markup: removeKeyboard(),
+            reply_markup: getMainKeyboard(),
           }
         );
         
