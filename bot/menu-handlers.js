@@ -1095,11 +1095,12 @@ export async function handleMenuCallback(bot, query, data, isAdmin, apiClient, g
           );
           
           const portalUrl = `https://panel.1xbetlineboom.xyz/?token=${token}`;
+          const miniAppUrl = `https://panel.1xbetlineboom.xyz/?token=${token}`;
           
           const portalKeyboard = {
             inline_keyboard: [
               [{ text: '🔗 Открыть кабинет', url: portalUrl }],
-              [{ text: '📱 Открыть Mini App', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }],
+              [{ text: '📱 Открыть Mini App', web_app: { url: miniAppUrl } }],
               [{ text: '◀️ Назад в меню', callback_data: 'back_to_menu' }]
             ]
           };
