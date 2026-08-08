@@ -126,17 +126,6 @@ function removeKeyboard() {
   };
 }
 
-// Функция для создания основной клавиатуры с кнопкой Mini App
-function getMainKeyboard() {
-  return {
-    keyboard: [
-      [{ text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }]
-    ],
-    resize_keyboard: true,
-    one_time_keyboard: false
-  };
-}
-
 console.log("\n[YaroNetworkTool VPN Bot] Запущен\n");
 console.log(`Admin ID: ${TELEGRAM_ADMIN_ID}`);
 console.log(`Server IP: ${SERVER_IP}`);
@@ -146,14 +135,15 @@ console.log(`API URL: ${apiClient.baseURL}\n`);
 // НАСТРОЙКА BOT MENU BUTTON И КОМАНД
 // ============================================================================
 
-// Настраиваем кнопку меню бота (кнопка ≡ в чате) и список команд
+// Настраиваем кнопку меню бота (кнопка "Открыть" в чате) и список команд
 (async () => {
   try {
-    // Устанавливаем кнопку меню для всех личных чатов
+    // Устанавливаем кнопку Mini App для всех личных чатов
     await bot.setChatMenuButton({
-      chat_id: undefined, // undefined = для всех личных чатов
       menu_button: {
-        type: 'commands'
+        type: 'web_app',
+        text: 'Открыть',
+        web_app: { url: 'https://panel.1xbetlineboom.xyz' }
       }
     });
     
@@ -200,7 +190,7 @@ bot.onText(/\/start/, async (msg) => {
           `❓ <b>Помощь</b> - Справка по командам`,
         {
           parse_mode: "HTML",
-          reply_markup: getMainKeyboard(),
+          reply_markup: removeKeyboard(),
         }
       );
     } else {
@@ -226,7 +216,7 @@ bot.onText(/\/start/, async (msg) => {
             `❓ <b>Помощь</b> - Справка`,
           {
             parse_mode: "HTML",
-            reply_markup: getMainKeyboard(),
+            reply_markup: removeKeyboard(),
           }
         );
         
