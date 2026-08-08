@@ -50,6 +50,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
         ],
         [
           { text: '❓ Помощь', callback_data: 'menu_help' }
+        ],
+        [
+          { text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }
         ]
       ];
 
@@ -86,6 +89,9 @@ export async function handleMenuCommand(bot, msg, isAdmin, apiClient) {
         ],
         [
           { text: '❓ Помощь', callback_data: 'menu_help' }
+        ],
+        [
+          { text: '📱 Открыть панель', web_app: { url: 'https://panel.1xbetlineboom.xyz' } }
         ],
         [
           { text: '🗑️ Удалить аккаунт', callback_data: 'menu_delete_account' }
