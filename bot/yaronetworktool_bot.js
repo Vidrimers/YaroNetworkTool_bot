@@ -135,15 +135,14 @@ console.log(`API URL: ${apiClient.baseURL}\n`);
 // НАСТРОЙКА BOT MENU BUTTON И КОМАНД
 // ============================================================================
 
-// Настраиваем кнопку меню бота (кнопка "Открыть" в чате) и список команд
+// Настраиваем кнопку меню бота (кнопка ≡ в чате) и список команд
 (async () => {
   try {
-    // Устанавливаем кнопку Mini App для всех личных чатов
+    // Устанавливаем кнопку меню для всех личных чатов
     await bot.setChatMenuButton({
+      chat_id: undefined, // undefined = для всех личных чатов
       menu_button: {
-        type: 'web_app',
-        text: 'Открыть',
-        web_app: { url: 'https://panel.1xbetlineboom.xyz' }
+        type: 'commands'
       }
     });
     
