@@ -1410,6 +1410,57 @@ bot.on("message", async (msg) => {
       return;
     }
     
+    // Обработка ввода причины отклонения запроса
+    if (userState.action === "deny_reason") {
+      const reason = text;
+      
+      try {
+        const response = await apiClient.denyExtensionRequest(userState.requestId, reason, userId);
+        const request = response.request;
+        
+        let clientName = "Неизвестный";
+        try {
+          const clientResponse = await apiClient.getClient(request.client_uuid);
+          clientName = clientResponse.client.name;
+        } catch (err) {
+          clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
+        }
+        
+        // Удаляем сообщение с запросом причины
+        try {
+          await bot.deleteMessage(chatId, userStates.get(userId)?.messageId ? query?.message?.message_id : chatId);
+        } catch (e) {}
+        
+        bot.editMessageText(
+          `❌ <b>Запрос отклонен</b>\n\n` +
+            `Клиент: <b>${clientName}</b>\n` +
+            `UUID: <code>${request.client_uuid}</code>\n` +
+            `Причина: ${reason}`,
+          {
+            chat_id: chatId,
+            message_id: userState.messageId,
+            parse_mode: "HTML",
+          }
+        );
+        
+        // Уведомляем клиента с причиной
+        if (request.telegram_id) {
+          bot.sendMessage(
+            request.telegram_id,
+            `❌ <b>Твой запрос отклонён</b>\n\n📝 Причина: ${reason}`,
+            { parse_mode: "HTML" }
+          );
+        }
+        
+        userStates.delete(userId);
+      } catch (error) {
+        console.error("Ошибка отклонения запроса:", error);
+        bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
+        userStates.delete(userId);
+      }
+      return;
+    }
+    
     // Обработка ввода своей причины предупреждения
     if (userState.action === "warn_custom") {
       const reason = text;
@@ -4020,7 +4071,7 @@ bot.on("callback_query", async (query) => {
       }
     }
 
-    // Отказ в запросе
+    // Отказ в запросе — запрашиваем причину
     else if (data.startsWith("deny_")) {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
@@ -4032,43 +4083,86 @@ bot.on("callback_query", async (query) => {
 
       const requestId = data.split("_")[1];
 
+      // Сохраняем состояние для ввода причины
+      userStates.set(userId, {
+        action: "deny_reason",
+        requestId: requestId,
+        messageId: query.message.message_id,
+      });
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: "❌ Без причины", callback_data: `deny_confirm_${requestId}_none` }],
+          [{ text: "🚫 Отмена", callback_data: `deny_cancel_${requestId}` }]
+        ]
+      };
+
+      bot.sendMessage(
+        chatId,
+        `📝 <b>Укажи причину отклонения:</b>\n\n` +
+          `Или нажми "Без причины" чтобы отклонить без объяснения.`,
+        {
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        }
+      );
+
+      bot.answerCallbackQuery(query.id);
+    }
+
+    // Подтверждение отклонения без причины
+    else if (data.startsWith("deny_confirm_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const parts = data.split("_");
+      const requestId = parts[2];
+      const reasonType = parts[3];
+      const reason = reasonType === "none" ? null : reasonType;
+
       try {
-        // Отклоняем запрос через API
-        const response = await apiClient.denyExtensionRequest(requestId, "Отклонено администратором", userId);
+        const response = await apiClient.denyExtensionRequest(requestId, reason || "Отклонено администратором", userId);
         const request = response.request;
 
-        // Получаем имя клиента по UUID
         let clientName = "Неизвестный";
         try {
           const clientResponse = await apiClient.getClient(request.client_uuid);
           clientName = clientResponse.client.name;
         } catch (err) {
-          console.error("Ошибка получения имени клиента:", err);
           clientName = `UUID: ${request.client_uuid.substring(0, 8)}...`;
         }
+
+        // Удаляем сообщение с запросом причины
+        try {
+          await bot.deleteMessage(chatId, query.message.message_id);
+        } catch (e) {}
 
         bot.editMessageText(
           `❌ <b>Запрос отклонен</b>\n\n` +
             `Клиент: <b>${clientName}</b>\n` +
-            `UUID: <code>${request.client_uuid}</code>`,
+            `UUID: <code>${request.client_uuid}</code>` +
+            (reason ? `\nПричина: ${reason}` : ""),
           {
             chat_id: chatId,
-            message_id: query.message.message_id,
+            message_id: userStates.get(userId)?.messageId || query.message.message_id,
             parse_mode: "HTML",
           }
         );
 
         // Уведомляем клиента
         if (request.telegram_id) {
-          bot.sendMessage(
-            request.telegram_id,
-            `❌ <b>Твой запрос отклонен</b>\n\n` +
-              `К сожалению, администратор отклонил твой запрос на продление.\n` +
-              `Для уточнения причины обратись к администратору.`,
-            { parse_mode: "HTML" }
-          );
+          const userMessage = reason
+            ? `❌ <b>Твой запрос отклонён</b>\n\n📝 Причина: ${reason}`
+            : `❌ <b>Твой запрос отклонён</b>\n\nК сожалению, администратор отклонил твой запрос на продление.\nДля уточнения причины обратись к администратору.`;
+          bot.sendMessage(request.telegram_id, userMessage, { parse_mode: "HTML" });
         }
 
+        userStates.delete(userId);
         bot.answerCallbackQuery(query.id, { text: "❌ Запрос отклонен" });
       } catch (error) {
         console.error("Ошибка отклонения запроса:", error);
@@ -4077,6 +4171,18 @@ bot.on("callback_query", async (query) => {
           show_alert: true,
         });
       }
+    }
+
+    // Отмена отклонения
+    else if (data.startsWith("deny_cancel_")) {
+      const requestId = data.split("_")[2];
+      userStates.delete(userId);
+      
+      try {
+        await bot.deleteMessage(chatId, query.message.message_id);
+      } catch (e) {}
+      
+      bot.answerCallbackQuery(query.id, { text: "Отменено" });
     }
 
     // Изменение периода
