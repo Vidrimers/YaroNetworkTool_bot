@@ -4071,47 +4071,8 @@ bot.on("callback_query", async (query) => {
       }
     }
 
-    // Отказ в запросе — запрашиваем причину
-    else if (data.startsWith("deny_")) {
-      if (!isAdmin(userId)) {
-        bot.answerCallbackQuery(query.id, {
-          text: "❌ Доступ запрещен",
-          show_alert: true,
-        });
-        return;
-      }
-
-      const requestId = data.split("_")[1];
-
-      // Сохраняем состояние для ввода причины
-      userStates.set(userId, {
-        action: "deny_reason",
-        requestId: requestId,
-        messageId: query.message.message_id,
-      });
-
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: "❌ Без причины", callback_data: `deny_confirm_${requestId}_none` }],
-          [{ text: "🚫 Отмена", callback_data: `deny_cancel_${requestId}` }]
-        ]
-      };
-
-      bot.sendMessage(
-        chatId,
-        `📝 <b>Укажи причину отклонения:</b>\n\n` +
-          `Или нажми "Без причины" чтобы отклонить без объяснения.`,
-        {
-          parse_mode: "HTML",
-          reply_markup: keyboard
-        }
-      );
-
-      bot.answerCallbackQuery(query.id);
-    }
-
-    // Подтверждение отклонения без причины
-    else if (data.startsWith("deny_confirm_")) {
+    // Подтверждение отклонения без причины (check BEFORE deny_ to avoid prefix match)
+    if (data.startsWith("deny_confirm_")) {
       if (!isAdmin(userId)) {
         bot.answerCallbackQuery(query.id, {
           text: "❌ Доступ запрещен",
@@ -4183,6 +4144,45 @@ bot.on("callback_query", async (query) => {
       } catch (e) {}
       
       bot.answerCallbackQuery(query.id, { text: "Отменено" });
+    }
+
+    // Отказ в запросе — запрашиваем причину
+    else if (data.startsWith("deny_")) {
+      if (!isAdmin(userId)) {
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Доступ запрещен",
+          show_alert: true,
+        });
+        return;
+      }
+
+      const requestId = data.split("_")[1];
+
+      // Сохраняем состояние для ввода причины
+      userStates.set(userId, {
+        action: "deny_reason",
+        requestId: requestId,
+        messageId: query.message.message_id,
+      });
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: "❌ Без причины", callback_data: `deny_confirm_${requestId}_none` }],
+          [{ text: "🚫 Отмена", callback_data: `deny_cancel_${requestId}` }]
+        ]
+      };
+
+      bot.sendMessage(
+        chatId,
+        `📝 <b>Укажи причину отклонения:</b>\n\n` +
+          `Или нажми "Без причины" чтобы отклонить без объяснения.`,
+        {
+          parse_mode: "HTML",
+          reply_markup: keyboard
+        }
+      );
+
+      bot.answerCallbackQuery(query.id);
     }
 
     // Изменение периода
