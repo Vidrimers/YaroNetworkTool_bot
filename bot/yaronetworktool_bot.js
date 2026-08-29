@@ -3916,6 +3916,37 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
+    // Кнопка "Запросить ключ" из уведомления об истекающей подписке
+    if (data === "request_key_from_notify") {
+      const requestKeyboard = {
+        inline_keyboard: [
+          [
+            { text: "1 месяц", callback_data: "request_1" },
+            { text: "2 месяца", callback_data: "request_2" },
+            { text: "3 месяца", callback_data: "request_3" },
+          ],
+          [
+            { text: "6 месяцев", callback_data: "request_6" },
+            { text: "12 месяцев", callback_data: "request_12" },
+          ],
+          [{ text: "◀️ Отмена", callback_data: "request_cancel" }],
+        ],
+      };
+
+      bot.editMessageText(
+        `🔑 <b>Запрос на продление подписки</b>\n\n` +
+          `Выбери период продления:`,
+        {
+          chat_id: chatId,
+          message_id: query.message.message_id,
+          parse_mode: "HTML",
+          reply_markup: requestKeyboard,
+        }
+      );
+      bot.answerCallbackQuery(query.id);
+      return;
+    }
+
     // Запросы на продление от клиента
     if (data.startsWith("request_")) {
       if (data === "request_cancel") {
@@ -3943,7 +3974,8 @@ bot.on("callback_query", async (query) => {
         const response = await apiClient.createExtensionRequest({
           client_uuid: client.uuid,
           telegram_id: userId,
-          requested_months: months
+          requested_months: months,
+          source: "telegram"
         });
 
         bot.editMessageText(
@@ -3957,34 +3989,6 @@ bot.on("callback_query", async (query) => {
             parse_mode: "HTML",
           }
         );
-
-        // Отправляем уведомление админу
-        if (TELEGRAM_ADMIN_ID) {
-          const keyboard = {
-            inline_keyboard: [
-              [
-                { text: "✅ Разрешить", callback_data: `approve_${response.request.id}_${months}` },
-                { text: "❌ Отказать", callback_data: `deny_${response.request.id}` },
-              ],
-              [
-                { text: "📝 Другой период", callback_data: `change_req_${response.request.id}` },
-              ],
-            ],
-          };
-
-          bot.sendMessage(
-            TELEGRAM_ADMIN_ID,
-            `🔔 <b>Новый запрос на продление</b>\n\n` +
-              `👤 Клиент: ${client.name}\n` +
-              `🆔 UUID: <code>${client.uuid}</code>\n` +
-              `📅 Запрошено: ${months} ${months === 1 ? "месяц" : "месяцев"} (${response.request.requested_days} дней)\n\n` +
-              `Выбери действие:`,
-            {
-              parse_mode: "HTML",
-              reply_markup: keyboard,
-            }
-          );
-        }
 
         bot.answerCallbackQuery(query.id);
       } catch (error) {

@@ -177,8 +177,15 @@ async function checkSubscriptions() {
           `⚠️ <b>Подписка истекает</b>\n\n` +
             `Твоя подписка на VPN истекает через <b>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft <= 4 ? 'дня' : 'дней'}</b>.\n\n` +
             `📅 <b>Дата окончания:</b> ${formatDate(client.subscription_end)}\n\n` +
-            `Для продления подписки обратись к администратору или используй команду /my_requests.`,
-          { parse_mode: "HTML" }
+            `Для продления подписки нажми кнопку ниже:`,
+          {
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "🔑 Запросить ключ", callback_data: "request_key_from_notify" }]
+              ]
+            }
+          }
         ).catch(err => console.error(`Ошибка отправки уведомления клиенту ${client.telegram_id}:`, err));
       }
 
